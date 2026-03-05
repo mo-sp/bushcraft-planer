@@ -76,12 +76,7 @@ function goBack() {
   router.back()
 }
 
-function getDisplayCategory(key: string): string {
-  if (customCategoryName.value && category.value === key) {
-    return customCategoryName.value
-  }
-  return PROJECT_CATEGORY_LABELS[key] || projectStore.customCategories[key] || key
-}
+// Display category name is handled directly in template
 </script>
 
 <template>

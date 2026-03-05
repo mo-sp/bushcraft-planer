@@ -41,7 +41,7 @@ const isDeleting = ref(false)
 // New task form
 const newTaskTitle = ref('')
 const newTaskDescription = ref('')
-const newTaskDuration = ref<number | undefined>()
+const newTaskDuration = ref<number | ''>('')
 const newTaskManpower = ref(1)
 
 // New material requirement
@@ -59,10 +59,7 @@ function getCategoryIcon(category: string) {
   return categoryIcons[category] || FolderPlus
 }
 
-const statusOptions = Object.entries(PROJECT_STATUS_LABELS).map(([value, label]) => ({
-  value,
-  label
-}))
+// Status options are displayed as clickable buttons in the template
 
 const availableMaterials = computed(() => {
   return materialStore.materials.map(m => ({
@@ -118,7 +115,7 @@ async function toggleTask(taskId: string) {
 function resetTaskForm() {
   newTaskTitle.value = ''
   newTaskDescription.value = ''
-  newTaskDuration.value = undefined
+  newTaskDuration.value = ''
   newTaskManpower.value = 1
 }
 
@@ -129,7 +126,7 @@ async function addTask() {
     projectId: projectId.value,
     title: newTaskTitle.value.trim(),
     description: newTaskDescription.value.trim() || undefined,
-    duration: newTaskDuration.value,
+    duration: newTaskDuration.value || undefined,
     manpower: newTaskManpower.value
   })
 
