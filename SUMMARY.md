@@ -77,18 +77,47 @@
 
 ---
 
+## Session 3 (2026-03-05)
+
+### 11. Inline-Editing in ProjectDetailPage ✅
+- **Kein zentraler Edit-Button** mehr oben rechts
+- Klick auf Name, Beschreibung oder Notizen → direkt editierbar
+- Save/Cancel Buttons erscheinen unter dem Feld
+- Buttons 20px nach rechts verschoben, 10% größer
+
+### 12. Bild-Upload für Projekte ✅
+- Kamera-Icon oben rechts im Header
+- Bilder werden als Base64 in IndexedDB gespeichert
+- "Bild entfernen" Button wenn Bild vorhanden
+- Header-Hintergrund dunkelgrün statt hellbraun
+
+### 13. UI-Polish ✅
+- **Status-Buttons deutlicher**: Aktive Phase mit scale-110, Schatten und grünem Rand
+- **Zurück-Button**: ChevronLeft mit dickerem Strich (stroke-width 3)
+- **Löschen-Button**: Klein oben rechts (roter Kreis) statt riesig unten
+- **Edit/Trash-Buttons**: 30% größer (w-5 h-5, p-2.5)
+- **"In Bearbeitung"**: Gelb statt orange
+- **Fortschrittsbalken**: Sichtbarer Rand bei 0%
+
+### 14. Material- & Ausrüstungs-Editor ✅
+- **InventoryPage**: Edit-Button neben jedem Material
+- Modal zum Ändern von Name, Spezifikation, Einheit, Bestand
+- **EquipmentPage**: Edit-Button neben jeder Ausrüstung
+- Modal zum Ändern von Name, Details, Bestand
+- **Low-Stock-Warnungen entfernt** (keine Produktionsfirma)
+
+### Commit
+```
+c54b0fc feat: UI-Verbesserungen ProjectDetail, Inline-Editing & Material/Equipment-Editor
+```
+
+---
+
 ## Was noch zu tun ist (nächste Session)
 
-### Build-Fehler beheben
-```bash
-npm run build
-```
-Der letzte Build wurde nicht getestet nach den großen Änderungen!
-
 ### Fehlende Features
-1. **Material-Verfügbarkeitsprüfung**: Nur zuweisen wenn genug Bestand
-2. **Material bei Projekterstellung**: Form erweitern
-3. **Drag & Drop** für Aufgaben-Reihenfolge
+1. **Material bei Projekterstellung**: Form erweitern
+2. **Drag & Drop** für Aufgaben-Reihenfolge
 
 ### Testing
 1. App im Browser testen: `npm run dev -- --host`
