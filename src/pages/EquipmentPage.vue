@@ -1,19 +1,29 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Plus, Minus, Trash2, Backpack, AlertTriangle, Search } from 'lucide-vue-next'
+import { Plus, Minus, Trash2, Backpack, Search, Edit3 } from 'lucide-vue-next'
 import { useEquipmentStore } from '@entities/equipment/model/store'
+import type { Equipment } from '@entities/equipment/model/types'
 import {
-  BaseButton, BaseCard, BaseInput, BaseModal, BaseEmptyState, BaseBadge
+  BaseButton, BaseCard, BaseInput, BaseModal, BaseEmptyState
 } from '@shared/ui'
 
 const equipmentStore = useEquipmentStore()
 
 const searchQuery = ref('')
 const showAddEquipment = ref(false)
+const showEditEquipment = ref(false)
 const showDeleteConfirm = ref<string | null>(null)
 
 // New equipment form
 const newEquipment = ref({
+  name: '',
+  specifications: '',
+  currentStock: 0
+})
+
+// Edit equipment form
+const editingEquipmentId = ref('')
+const editEquipment = ref({
   name: '',
   specifications: '',
   currentStock: 0
@@ -50,6 +60,28 @@ async function addEquipment() {
   showAddEquipment.value = false
 }
 
+function startEditEquipment(item: Equipment & { totalRequired: number }) {
+  editingEquipmentId.value = item.id
+  editEquipment.value = {
+    name: item.name,
+    specifications: item.specifications || '',
+    currentStock: item.currentStock
+  }
+  showEditEquipment.value = true
+}
+
+async function saveEditEquipment() {
+  if (!editEquipment.value.name.trim()) return
+
+  await equipmentStore.updateEquipment(editingEquipmentId.value, {
+    name: editEquipment.value.name.trim(),
+    specifications: editEquipment.value.specifications.trim() || undefined,
+    currentStock: editEquipment.value.currentStock
+  })
+
+  showEditEquipment.value = false
+}
+
 async function adjustStock(id: string, delta: number) {
   await equipmentStore.adjustStock(id, delta)
 }
@@ -76,22 +108,6 @@ async function deleteEquipment(id: string) {
       </BaseButton>
     </header>
 
-    <!-- Low stock warning -->
-    <BaseCard
-      v-if="equipmentStore.lowStockEquipment.length > 0"
-      class="mb-4 !bg-amber-900/30 border-amber-600/50"
-    >
-      <div class="flex items-start gap-3">
-        <AlertTriangle class="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-        <div>
-          <p class="font-medium text-amber-300">Niedriger Bestand</p>
-          <p class="text-sm text-amber-400 mt-1">
-            {{ equipmentStore.lowStockEquipment.map(e => e.name).join(', ') }}
-          </p>
-        </div>
-      </div>
-    </BaseCard>
-
     <!-- Search -->
     <div class="relative mb-4">
       <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-earth-500" />
@@ -112,21 +128,12 @@ async function deleteEquipment(id: string) {
         <div class="flex items-center justify-between gap-4">
           <!-- Info -->
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <h3 class="font-medium text-earth-100 truncate">
-                {{ item.name }}
-                <span v-if="item.specifications" class="text-earth-400 font-normal">
-                  ({{ item.specifications }})
-                </span>
-              </h3>
-              <BaseBadge
-                v-if="item.isLow"
-                variant="warning"
-                size="sm"
-              >
-                Niedrig
-              </BaseBadge>
-            </div>
+            <h3 class="font-medium text-earth-100 truncate">
+              {{ item.name }}
+              <span v-if="item.specifications" class="text-earth-400 font-normal">
+                ({{ item.specifications }})
+              </span>
+            </h3>
             <p class="text-sm text-earth-400 mt-0.5">
               {{ item.totalRequired > 0 ? `${item.totalRequired} benötigt` : 'Nicht zugewiesen' }}
             </p>
@@ -159,10 +166,20 @@ async function deleteEquipment(id: string) {
             </button>
           </div>
 
+          <!-- Edit button -->
+          <button
+            class="p-2.5 rounded-lg text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
+            @click="startEditEquipment(item)"
+            title="Bearbeiten"
+          >
+            <Edit3 class="w-5 h-5" />
+          </button>
+
           <!-- Delete button -->
           <button
-            class="p-2 rounded-lg text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
+            class="p-2.5 rounded-lg text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
             @click="showDeleteConfirm = item.id"
+            title="Löschen"
           >
             <Trash2 class="w-5 h-5" />
           </button>
@@ -235,6 +252,53 @@ async function deleteEquipment(id: string) {
             @click="addEquipment"
           >
             Hinzufügen
+          </BaseButton>
+        </div>
+      </template>
+    </BaseModal>
+
+    <!-- Edit equipment modal -->
+    <BaseModal
+      :open="showEditEquipment"
+      title="Ausrüstung bearbeiten"
+      @close="showEditEquipment = false"
+    >
+      <form @submit.prevent="saveEditEquipment" class="space-y-4">
+        <BaseInput
+          v-model="editEquipment.name"
+          label="Name"
+          placeholder="z.B. Rucksack, Zelt, Messer"
+          required
+        />
+
+        <BaseInput
+          v-model="editEquipment.specifications"
+          label="Details (optional)"
+          placeholder="z.B. 30L wasserdicht, 2-Personen"
+        />
+
+        <BaseInput
+          v-model.number="editEquipment.currentStock"
+          type="number"
+          label="Aktueller Bestand"
+          placeholder="0"
+        />
+      </form>
+      <template #footer>
+        <div class="flex gap-3">
+          <BaseButton
+            variant="secondary"
+            full-width
+            @click="showEditEquipment = false"
+          >
+            Abbrechen
+          </BaseButton>
+          <BaseButton
+            full-width
+            :disabled="!editEquipment.name.trim()"
+            @click="saveEditEquipment"
+          >
+            Speichern
           </BaseButton>
         </div>
       </template>

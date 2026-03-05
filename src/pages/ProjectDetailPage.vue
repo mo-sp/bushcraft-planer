@@ -2,14 +2,15 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  ArrowLeft, Plus, Trash2, CheckCircle2, Edit3, Save, X,
-  Building2, Compass, Hammer, FolderPlus, Package, Clock, Users, StickyNote
+  ChevronLeft, Plus, Trash2, CheckCircle2, Edit3, Save, X,
+  Building2, Compass, Hammer, FolderPlus, Package, Clock, Users, StickyNote, Image
 } from 'lucide-vue-next'
 import { useProjectStore } from '@entities/project/model/store'
 import { useTaskStore } from '@entities/task/model/store'
 import { useMaterialStore } from '@entities/material/model/store'
 import type { ProjectStatus } from '@entities/project/model/types'
 import { PROJECT_STATUS_LABELS } from '@entities/project/model/types'
+import type { Task } from '@entities/task/model/types'
 import {
   BaseButton, BaseCard, BaseBadge, BaseProgress, BaseModal,
   BaseInput, BaseTextarea, BaseCheckbox, BaseEmptyState, BaseSelect
@@ -26,16 +27,18 @@ const project = computed(() => projectStore.projectById(projectId.value))
 const tasks = computed(() => taskStore.tasksByProject(projectId.value))
 const requirements = computed(() => materialStore.requirementsByProject(projectId.value))
 
-// Edit mode
-const isEditing = ref(false)
+// Inline editing states
+const editingField = ref<string | null>(null)
 const editName = ref('')
 const editDescription = ref('')
 const editNotes = ref('')
 
 // Modals
 const showAddTask = ref(false)
+const showEditTask = ref(false)
 const showDeleteConfirm = ref(false)
 const showAddMaterial = ref(false)
+const showEditMaterial = ref(false)
 const isDeleting = ref(false)
 
 // New task form
@@ -44,9 +47,23 @@ const newTaskDescription = ref('')
 const newTaskDuration = ref<number | ''>('')
 const newTaskManpower = ref(1)
 
+// Edit task form
+const editingTaskId = ref('')
+const editTaskTitle = ref('')
+const editTaskDescription = ref('')
+const editTaskDuration = ref<number | ''>('')
+const editTaskManpower = ref(1)
+
 // New material requirement
 const selectedMaterialId = ref('')
 const requiredAmount = ref(1)
+
+// Edit material requirement
+const editingReqId = ref('')
+const editReqAmount = ref(1)
+
+// Image upload
+const imageInput = ref<HTMLInputElement | null>(null)
 
 const categoryIcons: Record<string, typeof Building2> = {
   construction: Building2,
@@ -58,8 +75,6 @@ const categoryIcons: Record<string, typeof Building2> = {
 function getCategoryIcon(category: string) {
   return categoryIcons[category] || FolderPlus
 }
-
-// Status options are displayed as clickable buttons in the template
 
 const availableMaterials = computed(() => {
   return materialStore.materials.map(m => ({
@@ -82,26 +97,27 @@ function goBack() {
   router.back()
 }
 
-function startEditing() {
+// Inline editing functions
+function startEditField(field: string) {
   if (!project.value) return
-  editName.value = project.value.name
-  editDescription.value = project.value.description
-  editNotes.value = project.value.notes || ''
-  isEditing.value = true
+  editingField.value = field
+  if (field === 'name') editName.value = project.value.name
+  if (field === 'description') editDescription.value = project.value.description
+  if (field === 'notes') editNotes.value = project.value.notes || ''
 }
 
-async function saveEditing() {
+async function saveField(field: string) {
   if (!project.value) return
-  await projectStore.updateProject(projectId.value, {
-    name: editName.value,
-    description: editDescription.value,
-    notes: editNotes.value
-  })
-  isEditing.value = false
+  const updates: Record<string, string> = {}
+  if (field === 'name') updates.name = editName.value
+  if (field === 'description') updates.description = editDescription.value
+  if (field === 'notes') updates.notes = editNotes.value
+  await projectStore.updateProject(projectId.value, updates)
+  editingField.value = null
 }
 
-function cancelEditing() {
-  isEditing.value = false
+function cancelEdit() {
+  editingField.value = null
 }
 
 async function setStatus(status: ProjectStatus) {
@@ -134,6 +150,26 @@ async function addTask() {
   showAddTask.value = false
 }
 
+function startEditTask(task: Task) {
+  editingTaskId.value = task.id
+  editTaskTitle.value = task.title
+  editTaskDescription.value = task.description || ''
+  editTaskDuration.value = task.duration || ''
+  editTaskManpower.value = task.manpower || 1
+  showEditTask.value = true
+}
+
+async function saveEditTask() {
+  if (!editTaskTitle.value.trim()) return
+  await taskStore.updateTask(editingTaskId.value, {
+    title: editTaskTitle.value.trim(),
+    description: editTaskDescription.value.trim() || undefined,
+    duration: editTaskDuration.value || undefined,
+    manpower: editTaskManpower.value
+  })
+  showEditTask.value = false
+}
+
 async function deleteTask(taskId: string) {
   await taskStore.deleteTask(taskId)
 }
@@ -143,7 +179,7 @@ async function addMaterialRequirement() {
 
   const material = materialStore.materialById(selectedMaterialId.value)
   if (!material || material.currentStock < requiredAmount.value) {
-    return // Not enough stock
+    return
   }
 
   await materialStore.createRequirement({
@@ -155,6 +191,20 @@ async function addMaterialRequirement() {
   selectedMaterialId.value = ''
   requiredAmount.value = 1
   showAddMaterial.value = false
+}
+
+function startEditMaterial(reqId: string, amount: number) {
+  editingReqId.value = reqId
+  editReqAmount.value = amount
+  showEditMaterial.value = true
+}
+
+async function saveEditMaterial() {
+  if (editReqAmount.value <= 0) return
+  await materialStore.updateRequirement(editingReqId.value, {
+    requiredAmount: editReqAmount.value
+  })
+  showEditMaterial.value = false
 }
 
 async function deleteRequirement(reqId: string) {
@@ -213,53 +263,92 @@ function formatDuration(minutes?: number): string {
   const mins = minutes % 60
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
 }
+
+// Image handling
+function triggerImageUpload() {
+  imageInput.value?.click()
+}
+
+async function handleImageUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  // Convert to base64 for local storage
+  const reader = new FileReader()
+  reader.onload = async (e) => {
+    const base64 = e.target?.result as string
+    await projectStore.updateProject(projectId.value, { imageUrl: base64 })
+  }
+  reader.readAsDataURL(file)
+  input.value = ''
+}
+
+async function removeImage() {
+  await projectStore.updateProject(projectId.value, { imageUrl: undefined })
+}
 </script>
 
 <template>
   <div v-if="project" class="pb-6">
     <!-- Header image -->
     <div
-      class="h-40 relative flex items-center justify-center"
-      :style="{ backgroundColor: project.imagePlaceholder }"
+      class="h-44 relative flex items-center justify-center bg-deep-100"
+      :style="project.imageUrl ? { backgroundImage: `url(${project.imageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}"
     >
-      <!-- Back button -->
+      <!-- Overlay for better button visibility when image is present -->
+      <div v-if="project.imageUrl" class="absolute inset-0 bg-black/30" />
+
+      <!-- Back button - markanter Pfeil -->
       <button
-        class="absolute top-4 left-4 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/40 transition-colors safe-top"
+        class="absolute top-4 left-4 w-10 h-10 flex items-center justify-center rounded-full bg-deep-200/90 text-earth-100 hover:bg-deep-100 transition-colors safe-top"
         @click="goBack"
       >
-        <ArrowLeft class="w-6 h-6" />
+        <ChevronLeft class="w-7 h-7" stroke-width="3" />
       </button>
 
-      <!-- Edit button -->
-      <button
-        v-if="!isEditing"
-        class="absolute top-4 right-4 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/40 transition-colors safe-top"
-        @click="startEditing"
-      >
-        <Edit3 class="w-6 h-6" />
-      </button>
-
-      <!-- Save/Cancel buttons when editing -->
-      <div v-else class="absolute top-4 right-4 flex gap-2 safe-top">
+      <!-- Top right buttons: Delete + Image -->
+      <div class="absolute top-4 right-4 flex gap-2 safe-top z-10">
         <button
-          class="p-2 rounded-full bg-green-600 text-white hover:bg-green-500 transition-colors"
-          @click="saveEditing"
+          class="w-10 h-10 flex items-center justify-center rounded-full bg-deep-200/90 text-earth-300 hover:bg-deep-100 hover:text-earth-100 transition-colors"
+          @click="triggerImageUpload"
+          title="Bild hochladen"
         >
-          <Save class="w-6 h-6" />
+          <Image class="w-5 h-5" />
         </button>
         <button
-          class="p-2 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/40 transition-colors"
-          @click="cancelEditing"
+          class="w-10 h-10 flex items-center justify-center rounded-full bg-red-900/70 text-red-300 hover:bg-red-800 hover:text-red-200 transition-colors"
+          @click="showDeleteConfirm = true"
+          title="Projekt löschen"
         >
-          <X class="w-6 h-6" />
+          <Trash2 class="w-5 h-5" />
         </button>
       </div>
 
-      <!-- Category icon -->
-      <component
-        :is="getCategoryIcon(project.category)"
-        class="w-14 h-14 text-white/60"
+      <!-- Hidden file input -->
+      <input
+        ref="imageInput"
+        type="file"
+        accept="image/*"
+        class="hidden"
+        @change="handleImageUpload"
       />
+
+      <!-- Category icon (only when no image) -->
+      <component
+        v-if="!project.imageUrl"
+        :is="getCategoryIcon(project.category)"
+        class="w-16 h-16 text-earth-500/60"
+      />
+
+      <!-- Remove image button (when image present) -->
+      <button
+        v-if="project.imageUrl"
+        class="absolute bottom-3 right-3 px-2 py-1 text-xs rounded bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+        @click="removeImage"
+      >
+        Bild entfernen
+      </button>
     </div>
 
     <!-- Content -->
@@ -267,46 +356,81 @@ function formatDuration(minutes?: number): string {
       <!-- Info card -->
       <BaseCard class="mb-4">
         <!-- Editable title -->
-        <div v-if="isEditing" class="mb-4">
+        <div
+          v-if="editingField === 'name'"
+          class="mb-3"
+        >
           <BaseInput v-model="editName" label="Projektname" />
+          <div class="flex gap-2 mt-2 ml-5">
+            <button class="p-2 rounded bg-green-600 text-white hover:bg-green-500" @click="saveField('name')">
+              <Save class="w-5 h-5" />
+            </button>
+            <button class="p-2 rounded bg-deep-50 text-earth-300 hover:bg-deep-100" @click="cancelEdit">
+              <X class="w-5 h-5" />
+            </button>
+          </div>
         </div>
-        <div v-else class="flex items-start justify-between gap-3 mb-2">
+        <div
+          v-else
+          class="mb-2 cursor-pointer hover:bg-deep-50/50 -mx-2 px-2 py-1 rounded transition-colors"
+          @click="startEditField('name')"
+        >
           <h1 class="text-xl font-bold text-earth-100">
             {{ project.name }}
           </h1>
         </div>
 
-        <!-- Category -->
-        <p class="text-sm text-forest-400 mb-2">
+        <!-- Category (clickable für größere Schrift) -->
+        <p class="text-base text-forest-400 mb-3 font-medium">
           {{ getCategoryName() }}
         </p>
 
-        <!-- Status selector -->
+        <!-- Status selector - aktive Phase deutlich hervorgehoben -->
         <div class="flex flex-wrap gap-2 mb-4">
           <button
             v-for="(label, status) in PROJECT_STATUS_LABELS"
             :key="status"
             :class="[
-              'px-3 py-1.5 rounded-full text-sm font-medium transition-all',
+              'px-4 py-2.5 rounded-full text-sm font-semibold transition-all border-2',
               project.status === status
-                ? 'ring-2 ring-offset-2 ring-offset-deep-100'
-                : ''
+                ? 'scale-110 shadow-lg border-forest-400'
+                : 'opacity-50 hover:opacity-80 border-transparent'
             ]"
             @click="setStatus(status as ProjectStatus)"
           >
-            <BaseBadge :variant="getStatusVariant(status as ProjectStatus)">
+            <BaseBadge :variant="getStatusVariant(status as ProjectStatus)" size="md">
               {{ label }}
             </BaseBadge>
           </button>
         </div>
 
-        <!-- Description -->
-        <div v-if="isEditing" class="mb-4">
+        <!-- Editable Description -->
+        <div
+          v-if="editingField === 'description'"
+          class="mb-4"
+        >
           <BaseTextarea v-model="editDescription" label="Beschreibung" :rows="3" />
+          <div class="flex gap-2 mt-2 ml-5">
+            <button class="p-2 rounded bg-green-600 text-white hover:bg-green-500" @click="saveField('description')">
+              <Save class="w-5 h-5" />
+            </button>
+            <button class="p-2 rounded bg-deep-50 text-earth-300 hover:bg-deep-100" @click="cancelEdit">
+              <X class="w-5 h-5" />
+            </button>
+          </div>
         </div>
-        <p v-else-if="project.description" class="text-earth-300 mb-4">
-          {{ project.description }}
-        </p>
+        <div
+          v-else
+          class="mb-4 cursor-pointer hover:bg-deep-50/50 -mx-2 px-2 py-1 rounded transition-colors min-h-[2rem]"
+          @click="startEditField('description')"
+        >
+          <p v-if="project.description" class="text-earth-300">
+            {{ project.description }}
+          </p>
+          <p v-else class="text-earth-500 italic text-sm">
+            Tippe um Beschreibung hinzuzufügen...
+          </p>
+        </div>
 
         <!-- Progress -->
         <div class="pt-4 border-t border-deep-100">
@@ -329,19 +453,35 @@ function formatDuration(minutes?: number): string {
           <StickyNote class="w-5 h-5 text-forest-400" />
           <h2 class="text-lg font-semibold text-earth-100">Notizen & Brainstorming</h2>
         </div>
-        <div v-if="isEditing">
+        <div
+          v-if="editingField === 'notes'"
+        >
           <BaseTextarea
             v-model="editNotes"
             placeholder="Ideen, Skizzen, Gedanken..."
             :rows="6"
           />
+          <div class="flex gap-2 mt-2 ml-5">
+            <button class="p-2 rounded bg-green-600 text-white hover:bg-green-500" @click="saveField('notes')">
+              <Save class="w-5 h-5" />
+            </button>
+            <button class="p-2 rounded bg-deep-50 text-earth-300 hover:bg-deep-100" @click="cancelEdit">
+              <X class="w-5 h-5" />
+            </button>
+          </div>
         </div>
-        <div v-else-if="project.notes" class="text-earth-300 whitespace-pre-wrap">
-          {{ project.notes }}
+        <div
+          v-else
+          class="cursor-pointer hover:bg-deep-50/50 -mx-2 px-2 py-1 rounded transition-colors min-h-[3rem]"
+          @click="startEditField('notes')"
+        >
+          <div v-if="project.notes" class="text-earth-300 whitespace-pre-wrap">
+            {{ project.notes }}
+          </div>
+          <p v-else class="text-earth-500 italic">
+            Tippe um Notizen hinzuzufügen...
+          </p>
         </div>
-        <p v-else class="text-earth-500 italic">
-          Noch keine Notizen. Tippe auf Bearbeiten um Notizen hinzuzufügen.
-        </p>
       </BaseCard>
 
       <!-- Tasks section -->
@@ -386,12 +526,22 @@ function formatDuration(minutes?: number): string {
                     </span>
                   </div>
                 </div>
-                <button
-                  class="p-2 rounded-lg text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
-                  @click="deleteTask(task.id)"
-                >
-                  <Trash2 class="w-4 h-4" />
-                </button>
+                <div class="flex gap-1">
+                  <button
+                    class="p-2.5 rounded-lg text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
+                    @click="startEditTask(task)"
+                    title="Bearbeiten"
+                  >
+                    <Edit3 class="w-5 h-5" />
+                  </button>
+                  <button
+                    class="p-2.5 rounded-lg text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
+                    @click="deleteTask(task.id)"
+                    title="Löschen"
+                  >
+                    <Trash2 class="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -423,7 +573,7 @@ function formatDuration(minutes?: number): string {
               class="flex items-center justify-between px-4 py-3"
             >
               <span class="text-earth-200">{{ getMaterialName(req.materialId) }}</span>
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2">
                 <span
                   :class="[
                     'font-medium tabular-nums',
@@ -438,10 +588,18 @@ function formatDuration(minutes?: number): string {
                   {{ getMaterialUnit(req.materialId) }}
                 </span>
                 <button
-                  class="p-1 rounded text-earth-500 hover:text-red-400 transition-colors"
-                  @click="deleteRequirement(req.id)"
+                  class="p-2 rounded text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
+                  @click="startEditMaterial(req.id, req.requiredAmount)"
+                  title="Menge anpassen"
                 >
-                  <Trash2 class="w-4 h-4" />
+                  <Edit3 class="w-5 h-5" />
+                </button>
+                <button
+                  class="p-2 rounded text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
+                  @click="deleteRequirement(req.id)"
+                  title="Entfernen"
+                >
+                  <Trash2 class="w-5 h-5" />
                 </button>
               </div>
             </div>
@@ -455,16 +613,6 @@ function formatDuration(minutes?: number): string {
           description="Weise Materialien aus dem Lager zu."
         />
       </div>
-
-      <!-- Delete button -->
-      <BaseButton
-        variant="danger"
-        full-width
-        @click="showDeleteConfirm = true"
-      >
-        <Trash2 class="w-5 h-5" />
-        Projekt löschen
-      </BaseButton>
     </div>
 
     <!-- Add task modal -->
@@ -520,6 +668,59 @@ function formatDuration(minutes?: number): string {
       </template>
     </BaseModal>
 
+    <!-- Edit task modal -->
+    <BaseModal
+      :open="showEditTask"
+      title="Aufgabe bearbeiten"
+      @close="showEditTask = false"
+    >
+      <div class="space-y-4">
+        <BaseInput
+          v-model="editTaskTitle"
+          label="Aufgabe"
+          placeholder="Was soll erledigt werden?"
+        />
+        <BaseTextarea
+          v-model="editTaskDescription"
+          label="Details (optional)"
+          placeholder="Weitere Informationen..."
+          :rows="2"
+        />
+        <div class="grid grid-cols-2 gap-4">
+          <BaseInput
+            v-model.number="editTaskDuration"
+            type="number"
+            label="Dauer (Minuten)"
+            placeholder="60"
+          />
+          <BaseInput
+            v-model.number="editTaskManpower"
+            type="number"
+            label="Personen"
+            placeholder="1"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex gap-3">
+          <BaseButton
+            variant="secondary"
+            full-width
+            @click="showEditTask = false"
+          >
+            Abbrechen
+          </BaseButton>
+          <BaseButton
+            full-width
+            :disabled="!editTaskTitle.trim()"
+            @click="saveEditTask"
+          >
+            Speichern
+          </BaseButton>
+        </div>
+      </template>
+    </BaseModal>
+
     <!-- Add material modal -->
     <BaseModal
       :open="showAddMaterial"
@@ -555,6 +756,40 @@ function formatDuration(minutes?: number): string {
             @click="addMaterialRequirement"
           >
             Zuweisen
+          </BaseButton>
+        </div>
+      </template>
+    </BaseModal>
+
+    <!-- Edit material requirement modal -->
+    <BaseModal
+      :open="showEditMaterial"
+      title="Menge anpassen"
+      @close="showEditMaterial = false"
+    >
+      <div class="space-y-4">
+        <BaseInput
+          v-model.number="editReqAmount"
+          type="number"
+          label="Benötigte Menge"
+          placeholder="1"
+        />
+      </div>
+      <template #footer>
+        <div class="flex gap-3">
+          <BaseButton
+            variant="secondary"
+            full-width
+            @click="showEditMaterial = false"
+          >
+            Abbrechen
+          </BaseButton>
+          <BaseButton
+            full-width
+            :disabled="editReqAmount <= 0"
+            @click="saveEditMaterial"
+          >
+            Speichern
           </BaseButton>
         </div>
       </template>

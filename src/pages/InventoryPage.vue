@@ -1,20 +1,31 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Plus, Minus, Trash2, Warehouse, AlertTriangle, Search } from 'lucide-vue-next'
+import { Plus, Minus, Trash2, Warehouse, Search, Edit3 } from 'lucide-vue-next'
 import { useMaterialStore } from '@entities/material/model/store'
 import { COMMON_UNITS } from '@entities/material/model/types'
+import type { Material } from '@entities/material/model/types'
 import {
-  BaseButton, BaseCard, BaseInput, BaseSelect, BaseModal, BaseEmptyState, BaseBadge
+  BaseButton, BaseCard, BaseInput, BaseSelect, BaseModal, BaseEmptyState
 } from '@shared/ui'
 
 const materialStore = useMaterialStore()
 
 const searchQuery = ref('')
 const showAddMaterial = ref(false)
+const showEditMaterial = ref(false)
 const showDeleteConfirm = ref<string | null>(null)
 
 // New material form
 const newMaterial = ref({
+  name: '',
+  specifications: '',
+  unit: '',
+  currentStock: 0
+})
+
+// Edit material form
+const editingMaterialId = ref('')
+const editMaterial = ref({
   name: '',
   specifications: '',
   unit: '',
@@ -57,6 +68,30 @@ async function addMaterial() {
   showAddMaterial.value = false
 }
 
+function startEditMaterial(material: Material & { totalRequired: number }) {
+  editingMaterialId.value = material.id
+  editMaterial.value = {
+    name: material.name,
+    specifications: material.specifications || '',
+    unit: material.unit || '',
+    currentStock: material.currentStock
+  }
+  showEditMaterial.value = true
+}
+
+async function saveEditMaterial() {
+  if (!editMaterial.value.name.trim()) return
+
+  await materialStore.updateMaterial(editingMaterialId.value, {
+    name: editMaterial.value.name.trim(),
+    specifications: editMaterial.value.specifications.trim() || undefined,
+    unit: editMaterial.value.unit || undefined,
+    currentStock: editMaterial.value.currentStock
+  })
+
+  showEditMaterial.value = false
+}
+
 async function adjustStock(id: string, delta: number) {
   await materialStore.adjustStock(id, delta)
 }
@@ -83,22 +118,6 @@ async function deleteMaterial(id: string) {
       </BaseButton>
     </header>
 
-    <!-- Low stock warning -->
-    <BaseCard
-      v-if="materialStore.lowStockMaterials.length > 0"
-      class="mb-4 !bg-amber-900/30 border-amber-600/50"
-    >
-      <div class="flex items-start gap-3">
-        <AlertTriangle class="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-        <div>
-          <p class="font-medium text-amber-300">Niedriger Bestand</p>
-          <p class="text-sm text-amber-400 mt-1">
-            {{ materialStore.lowStockMaterials.map(m => m.name).join(', ') }}
-          </p>
-        </div>
-      </div>
-    </BaseCard>
-
     <!-- Search -->
     <div class="relative mb-4">
       <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-earth-500" />
@@ -119,21 +138,12 @@ async function deleteMaterial(id: string) {
         <div class="flex items-center justify-between gap-4">
           <!-- Info -->
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <h3 class="font-medium text-earth-100 truncate">
-                {{ material.name }}
-                <span v-if="material.specifications" class="text-earth-400 font-normal">
-                  ({{ material.specifications }})
-                </span>
-              </h3>
-              <BaseBadge
-                v-if="material.isLow"
-                variant="warning"
-                size="sm"
-              >
-                Niedrig
-              </BaseBadge>
-            </div>
+            <h3 class="font-medium text-earth-100 truncate">
+              {{ material.name }}
+              <span v-if="material.specifications" class="text-earth-400 font-normal">
+                ({{ material.specifications }})
+              </span>
+            </h3>
             <p class="text-sm text-earth-400 mt-0.5">
               {{ material.totalRequired > 0 ? `${material.totalRequired} benötigt` : 'Nicht zugewiesen' }}
             </p>
@@ -166,10 +176,20 @@ async function deleteMaterial(id: string) {
             </button>
           </div>
 
+          <!-- Edit button -->
+          <button
+            class="p-2.5 rounded-lg text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
+            @click="startEditMaterial(material)"
+            title="Bearbeiten"
+          >
+            <Edit3 class="w-5 h-5" />
+          </button>
+
           <!-- Delete button -->
           <button
-            class="p-2 rounded-lg text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
+            class="p-2.5 rounded-lg text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
             @click="showDeleteConfirm = material.id"
+            title="Löschen"
           >
             <Trash2 class="w-5 h-5" />
           </button>
@@ -248,6 +268,59 @@ async function deleteMaterial(id: string) {
             @click="addMaterial"
           >
             Hinzufügen
+          </BaseButton>
+        </div>
+      </template>
+    </BaseModal>
+
+    <!-- Edit material modal -->
+    <BaseModal
+      :open="showEditMaterial"
+      title="Material bearbeiten"
+      @close="showEditMaterial = false"
+    >
+      <form @submit.prevent="saveEditMaterial" class="space-y-4">
+        <BaseInput
+          v-model="editMaterial.name"
+          label="Name"
+          placeholder="z.B. Stock, Stein, Seil"
+          required
+        />
+
+        <BaseInput
+          v-model="editMaterial.specifications"
+          label="Maße / Spezifikation (optional)"
+          placeholder="z.B. 2 Meter gerade, rund 10x10cm"
+        />
+
+        <BaseSelect
+          v-model="editMaterial.unit"
+          label="Einheit (optional)"
+          :options="unitOptions"
+        />
+
+        <BaseInput
+          v-model.number="editMaterial.currentStock"
+          type="number"
+          label="Aktueller Bestand"
+          placeholder="0"
+        />
+      </form>
+      <template #footer>
+        <div class="flex gap-3">
+          <BaseButton
+            variant="secondary"
+            full-width
+            @click="showEditMaterial = false"
+          >
+            Abbrechen
+          </BaseButton>
+          <BaseButton
+            full-width
+            :disabled="!editMaterial.name.trim()"
+            @click="saveEditMaterial"
+          >
+            Speichern
           </BaseButton>
         </div>
       </template>

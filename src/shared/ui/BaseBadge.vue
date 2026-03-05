@@ -18,7 +18,7 @@ withDefaults(defineProps<Props>(), {
       {
         'bg-deep-50 text-earth-300': variant === 'default',
         'bg-green-900/50 text-green-400': variant === 'success',
-        'bg-amber-900/50 text-amber-400': variant === 'warning',
+        'bg-yellow-900/50 text-yellow-400': variant === 'warning',
         'bg-red-900/50 text-red-400': variant === 'danger',
         'bg-forest-900/50 text-forest-400': variant === 'forest',
         'bg-earth-800/50 text-earth-300': variant === 'earth'

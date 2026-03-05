@@ -32,7 +32,7 @@ const statusColor = computed(() => {
   <div class="flex items-center gap-2">
     <div
       :class="[
-        'flex-1 bg-deep-100 rounded-full overflow-hidden',
+        'flex-1 bg-deep-100 rounded-full overflow-hidden border border-earth-600/50',
         {
           'h-1': size === 'sm',
           'h-2': size === 'md',
