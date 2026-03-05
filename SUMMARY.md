@@ -43,6 +43,40 @@
 - **Edit-Modus** für Projektdetails
 - **Status-Buttons** direkt klickbar
 
+---
+
+## Session 2 (2026-03-05)
+
+### 7. UI-Verbesserungen für Mobile ✅
+- **Header vergrößert**: Logo 16x16, Titel text-3xl
+- **Navigation vergrößert**: Icons 8x8, Text text-sm, mehr Padding
+- 4 Tabs statt 3: Projekte | Material | Ausrüstung | Settings
+
+### 8. Ausrüstungslager (Equipment) ✅
+- Neuer Tab "Ausrüstung" mit Backpack-Icon
+- Eigener Store (`useEquipmentStore`)
+- Eigene DB-Tabellen (`equipment`, `equipmentRequirements`)
+- Gleiche Funktionalität wie Materiallager
+
+### 9. Material-Spezifikationen ✅
+- Neues Feld `specifications` für Maße/Details
+- z.B. "Stock (2 Meter, gerade)" oder "Stein (rund 10x10cm)"
+- Jede Variante ist ein separates Material mit eigenem Bestand
+
+### 10. Projekt-Erstellung erweitert ✅
+- Label: "Benötigte Materialien / Ausrüstung"
+- Kombinierte Suche aus beiden Lagern
+- Farbcodierung: Materialien grün, Ausrüstung orange
+- Edit-Button (Stift) zum Anpassen der Menge
+- Bei "Neu anlegen" wählbar: Material oder Ausrüstung
+
+### Commit
+```
+7e75538 feat: UI-Verbesserungen, Ausrüstungslager & Material-Spezifikationen
+```
+
+---
+
 ## Was noch zu tun ist (nächste Session)
 
 ### Build-Fehler beheben
