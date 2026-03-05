@@ -2,6 +2,7 @@ import Dexie, { type EntityTable } from 'dexie'
 import type { Project } from '@entities/project/model/types'
 import type { Task } from '@entities/task/model/types'
 import type { Material, MaterialRequirement } from '@entities/material/model/types'
+import type { Equipment, EquipmentRequirement } from '@entities/equipment/model/types'
 
 // Database schema with sync support
 export interface SyncMeta {
@@ -17,6 +18,8 @@ class BushcraftDatabase extends Dexie {
   tasks!: EntityTable<Task, 'id'>
   materials!: EntityTable<Material, 'id'>
   materialRequirements!: EntityTable<MaterialRequirement, 'id'>
+  equipment!: EntityTable<Equipment, 'id'>
+  equipmentRequirements!: EntityTable<EquipmentRequirement, 'id'>
   syncMeta!: EntityTable<SyncMeta, 'id'>
 
   constructor() {
@@ -27,6 +30,17 @@ class BushcraftDatabase extends Dexie {
       tasks: 'id, projectId, order, isCompleted, createdAt, updatedAt, syncedAt',
       materials: 'id, name, createdAt, updatedAt, syncedAt',
       materialRequirements: 'id, materialId, projectId, createdAt, updatedAt, syncedAt',
+      syncMeta: 'id, table, action, timestamp, synced'
+    })
+
+    // Version 2: Add equipment tables
+    this.version(2).stores({
+      projects: 'id, name, category, status, createdAt, updatedAt, syncedAt',
+      tasks: 'id, projectId, order, isCompleted, createdAt, updatedAt, syncedAt',
+      materials: 'id, name, createdAt, updatedAt, syncedAt',
+      materialRequirements: 'id, materialId, projectId, createdAt, updatedAt, syncedAt',
+      equipment: 'id, name, createdAt, updatedAt, syncedAt',
+      equipmentRequirements: 'id, equipmentId, projectId, createdAt, updatedAt, syncedAt',
       syncMeta: 'id, table, action, timestamp, synced'
     })
   }

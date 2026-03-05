@@ -5,9 +5,11 @@ import { useOnline } from '@vueuse/core'
 import AppNavigation from './AppNavigation.vue'
 import { useProjectStore } from '@entities/project/model/store'
 import { useMaterialStore } from '@entities/material/model/store'
+import { useEquipmentStore } from '@entities/equipment/model/store'
 
 const projectStore = useProjectStore()
 const materialStore = useMaterialStore()
+const equipmentStore = useEquipmentStore()
 const isOnline = useOnline()
 const isLoading = ref(true)
 
@@ -15,7 +17,8 @@ onMounted(async () => {
   try {
     await Promise.all([
       projectStore.loadProjects(),
-      materialStore.loadMaterials()
+      materialStore.loadMaterials(),
+      equipmentStore.loadEquipment()
     ])
   } finally {
     isLoading.value = false
@@ -27,15 +30,15 @@ onMounted(async () => {
   <div class="min-h-screen flex flex-col bg-deep-200">
     <!-- Header with brand -->
     <header class="bg-deep-400 safe-top sticky top-0 z-50 border-b border-deep-100/20">
-      <div class="flex items-center justify-center gap-3 px-4 py-2">
+      <div class="flex items-center justify-center gap-4 px-4 py-4">
         <img
           src="/logo.jpg"
           alt="Nature Boyz Logo"
-          class="w-12 h-12 rounded-lg object-cover"
+          class="w-16 h-16 rounded-xl object-cover"
         />
         <div class="text-center">
-          <h1 class="text-xl font-bold text-forest-300 tracking-wide">Nature Boyz</h1>
-          <p class="text-xs text-forest-500 -mt-0.5">Bushcraft Project Planer</p>
+          <h1 class="text-3xl font-bold text-forest-300 tracking-wide">Nature Boyz</h1>
+          <p class="text-sm text-forest-500 -mt-0.5">Bushcraft Project Planer</p>
         </div>
       </div>
     </header>

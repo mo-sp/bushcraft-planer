@@ -1,6 +1,7 @@
 export interface Material {
   id: string
   name: string
+  specifications?: string // z.B. "2 Meter, gerade" oder "rund 10x10cm"
   unit?: string           // Optional
   currentStock: number
   icon?: string
@@ -21,6 +22,7 @@ export interface MaterialRequirement {
 
 export interface CreateMaterialInput {
   name: string
+  specifications?: string // z.B. "2 Meter, gerade"
   unit?: string           // Optional
   currentStock?: number
   icon?: string
@@ -28,6 +30,7 @@ export interface CreateMaterialInput {
 
 export interface UpdateMaterialInput {
   name?: string
+  specifications?: string
   unit?: string
   currentStock?: number
   icon?: string

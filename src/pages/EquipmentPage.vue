@@ -1,68 +1,61 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Plus, Minus, Trash2, Warehouse, AlertTriangle, Search } from 'lucide-vue-next'
-import { useMaterialStore } from '@entities/material/model/store'
-import { COMMON_UNITS } from '@entities/material/model/types'
+import { Plus, Minus, Trash2, Backpack, AlertTriangle, Search } from 'lucide-vue-next'
+import { useEquipmentStore } from '@entities/equipment/model/store'
 import {
-  BaseButton, BaseCard, BaseInput, BaseSelect, BaseModal, BaseEmptyState, BaseBadge
+  BaseButton, BaseCard, BaseInput, BaseModal, BaseEmptyState, BaseBadge
 } from '@shared/ui'
 
-const materialStore = useMaterialStore()
+const equipmentStore = useEquipmentStore()
 
 const searchQuery = ref('')
-const showAddMaterial = ref(false)
+const showAddEquipment = ref(false)
 const showDeleteConfirm = ref<string | null>(null)
 
-// New material form
-const newMaterial = ref({
+// New equipment form
+const newEquipment = ref({
   name: '',
   specifications: '',
-  unit: '',
   currentStock: 0
 })
 
-const filteredMaterials = computed(() => {
+const filteredEquipment = computed(() => {
   const query = searchQuery.value.toLowerCase().trim()
-  if (!query) return materialStore.materialWithStock
+  if (!query) return equipmentStore.equipmentWithStock
 
-  return materialStore.materialWithStock.filter(m =>
-    m.name.toLowerCase().includes(query)
+  return equipmentStore.equipmentWithStock.filter(e =>
+    e.name.toLowerCase().includes(query) ||
+    (e.specifications && e.specifications.toLowerCase().includes(query))
   )
 })
 
-const unitOptions = computed(() =>
-  [{ value: '', label: 'Keine Einheit' }, ...COMMON_UNITS.map(unit => ({ value: unit, label: unit }))]
-)
-
 function resetForm() {
-  newMaterial.value = {
+  newEquipment.value = {
     name: '',
     specifications: '',
-    unit: '',
     currentStock: 0
   }
 }
 
-async function addMaterial() {
-  if (!newMaterial.value.name.trim()) return
+async function addEquipment() {
+  if (!newEquipment.value.name.trim()) return
 
-  await materialStore.createMaterial({
-    name: newMaterial.value.name.trim(),
-    specifications: newMaterial.value.specifications.trim() || undefined,
-    unit: newMaterial.value.unit || undefined,
-    currentStock: newMaterial.value.currentStock || 0
+  await equipmentStore.createEquipment({
+    name: newEquipment.value.name.trim(),
+    specifications: newEquipment.value.specifications.trim() || undefined,
+    currentStock: newEquipment.value.currentStock || 0
   })
 
   resetForm()
-  showAddMaterial.value = false
+  showAddEquipment.value = false
 }
 
 async function adjustStock(id: string, delta: number) {
-  await materialStore.adjustStock(id, delta)
+  await equipmentStore.adjustStock(id, delta)
 }
 
-async function deleteMaterial(id: string) {
-  await materialStore.deleteMaterial(id)
+async function deleteEquipment(id: string) {
+  await equipmentStore.deleteEquipment(id)
   showDeleteConfirm.value = null
 }
 </script>
@@ -72,12 +65,12 @@ async function deleteMaterial(id: string) {
     <!-- Header -->
     <header class="flex items-center justify-between mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-earth-100">Materiallager</h1>
+        <h1 class="text-2xl font-bold text-earth-100">Ausrüstungslager</h1>
         <p class="text-earth-400 text-sm mt-1">
-          {{ materialStore.materials.length }} Material{{ materialStore.materials.length !== 1 ? 'ien' : '' }}
+          {{ equipmentStore.equipment.length }} Ausrüstung{{ equipmentStore.equipment.length !== 1 ? 'en' : '' }}
         </p>
       </div>
-      <BaseButton @click="showAddMaterial = true">
+      <BaseButton @click="showAddEquipment = true">
         <Plus class="w-5 h-5" />
         Neu
       </BaseButton>
@@ -85,7 +78,7 @@ async function deleteMaterial(id: string) {
 
     <!-- Low stock warning -->
     <BaseCard
-      v-if="materialStore.lowStockMaterials.length > 0"
+      v-if="equipmentStore.lowStockEquipment.length > 0"
       class="mb-4 !bg-amber-900/30 border-amber-600/50"
     >
       <div class="flex items-start gap-3">
@@ -93,7 +86,7 @@ async function deleteMaterial(id: string) {
         <div>
           <p class="font-medium text-amber-300">Niedriger Bestand</p>
           <p class="text-sm text-amber-400 mt-1">
-            {{ materialStore.lowStockMaterials.map(m => m.name).join(', ') }}
+            {{ equipmentStore.lowStockEquipment.map(e => e.name).join(', ') }}
           </p>
         </div>
       </div>
@@ -105,29 +98,29 @@ async function deleteMaterial(id: string) {
       <input
         v-model="searchQuery"
         type="search"
-        placeholder="Material suchen..."
+        placeholder="Ausrüstung suchen..."
         class="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-deep-100 bg-deep-300 text-earth-100 placeholder-earth-500 focus:outline-none focus:border-forest-500 transition-colors"
       >
     </div>
 
-    <!-- Material list -->
-    <div v-if="filteredMaterials.length > 0" class="space-y-3">
+    <!-- Equipment list -->
+    <div v-if="filteredEquipment.length > 0" class="space-y-3">
       <BaseCard
-        v-for="material in filteredMaterials"
-        :key="material.id"
+        v-for="item in filteredEquipment"
+        :key="item.id"
       >
         <div class="flex items-center justify-between gap-4">
           <!-- Info -->
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <h3 class="font-medium text-earth-100 truncate">
-                {{ material.name }}
-                <span v-if="material.specifications" class="text-earth-400 font-normal">
-                  ({{ material.specifications }})
+                {{ item.name }}
+                <span v-if="item.specifications" class="text-earth-400 font-normal">
+                  ({{ item.specifications }})
                 </span>
               </h3>
               <BaseBadge
-                v-if="material.isLow"
+                v-if="item.isLow"
                 variant="warning"
                 size="sm"
               >
@@ -135,7 +128,7 @@ async function deleteMaterial(id: string) {
               </BaseBadge>
             </div>
             <p class="text-sm text-earth-400 mt-0.5">
-              {{ material.totalRequired > 0 ? `${material.totalRequired} benötigt` : 'Nicht zugewiesen' }}
+              {{ item.totalRequired > 0 ? `${item.totalRequired} benötigt` : 'Nicht zugewiesen' }}
             </p>
           </div>
 
@@ -143,24 +136,24 @@ async function deleteMaterial(id: string) {
           <div class="flex items-center gap-2">
             <button
               class="w-10 h-10 rounded-xl bg-deep-200 text-earth-300 flex items-center justify-center hover:bg-deep-100 active:scale-95 transition-all disabled:opacity-50 border border-deep-50/30"
-              :disabled="material.currentStock <= 0"
-              @click="adjustStock(material.id, -1)"
+              :disabled="item.currentStock <= 0"
+              @click="adjustStock(item.id, -1)"
             >
               <Minus class="w-5 h-5" />
             </button>
 
             <div class="w-16 text-center">
               <span class="text-lg font-semibold text-earth-100 tabular-nums">
-                {{ material.currentStock }}
+                {{ item.currentStock }}
               </span>
-              <span v-if="material.unit" class="text-xs text-earth-500 block">
-                {{ material.unit }}
+              <span class="text-xs text-earth-500 block">
+                Stück
               </span>
             </div>
 
             <button
               class="w-10 h-10 rounded-xl bg-forest-600 text-white flex items-center justify-center hover:bg-forest-500 active:scale-95 transition-all"
-              @click="adjustStock(material.id, 1)"
+              @click="adjustStock(item.id, 1)"
             >
               <Plus class="w-5 h-5" />
             </button>
@@ -169,7 +162,7 @@ async function deleteMaterial(id: string) {
           <!-- Delete button -->
           <button
             class="p-2 rounded-lg text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
-            @click="showDeleteConfirm = material.id"
+            @click="showDeleteConfirm = item.id"
           >
             <Trash2 class="w-5 h-5" />
           </button>
@@ -179,15 +172,15 @@ async function deleteMaterial(id: string) {
 
     <!-- Empty state -->
     <BaseEmptyState
-      v-else-if="materialStore.materials.length === 0"
-      :icon="Warehouse"
-      title="Kein Material"
-      description="Füge Materialien hinzu, um den Bestand zu verwalten."
+      v-else-if="equipmentStore.equipment.length === 0"
+      :icon="Backpack"
+      title="Keine Ausrüstung"
+      description="Füge Ausrüstung hinzu, um den Bestand zu verwalten."
     >
       <template #action>
-        <BaseButton @click="showAddMaterial = true">
+        <BaseButton @click="showAddEquipment = true">
           <Plus class="w-5 h-5" />
-          Material hinzufügen
+          Ausrüstung hinzufügen
         </BaseButton>
       </template>
     </BaseEmptyState>
@@ -197,37 +190,31 @@ async function deleteMaterial(id: string) {
       v-else
       :icon="Search"
       title="Keine Ergebnisse"
-      :description="`Kein Material mit '${searchQuery}' gefunden.`"
+      :description="`Keine Ausrüstung mit '${searchQuery}' gefunden.`"
     />
 
-    <!-- Add material modal -->
+    <!-- Add equipment modal -->
     <BaseModal
-      :open="showAddMaterial"
-      title="Neues Material"
-      @close="showAddMaterial = false; resetForm()"
+      :open="showAddEquipment"
+      title="Neue Ausrüstung"
+      @close="showAddEquipment = false; resetForm()"
     >
-      <form @submit.prevent="addMaterial" class="space-y-4">
+      <form @submit.prevent="addEquipment" class="space-y-4">
         <BaseInput
-          v-model="newMaterial.name"
+          v-model="newEquipment.name"
           label="Name"
-          placeholder="z.B. Stock, Stein, Seil"
+          placeholder="z.B. Rucksack, Zelt, Messer"
           required
         />
 
         <BaseInput
-          v-model="newMaterial.specifications"
-          label="Maße / Spezifikation (optional)"
-          placeholder="z.B. 2 Meter gerade, rund 10x10cm"
-        />
-
-        <BaseSelect
-          v-model="newMaterial.unit"
-          label="Einheit (optional)"
-          :options="unitOptions"
+          v-model="newEquipment.specifications"
+          label="Details (optional)"
+          placeholder="z.B. 30L wasserdicht, 2-Personen"
         />
 
         <BaseInput
-          v-model.number="newMaterial.currentStock"
+          v-model.number="newEquipment.currentStock"
           type="number"
           label="Anfangsbestand"
           placeholder="0"
@@ -238,14 +225,14 @@ async function deleteMaterial(id: string) {
           <BaseButton
             variant="secondary"
             full-width
-            @click="showAddMaterial = false; resetForm()"
+            @click="showAddEquipment = false; resetForm()"
           >
             Abbrechen
           </BaseButton>
           <BaseButton
             full-width
-            :disabled="!newMaterial.name.trim()"
-            @click="addMaterial"
+            :disabled="!newEquipment.name.trim()"
+            @click="addEquipment"
           >
             Hinzufügen
           </BaseButton>
@@ -256,11 +243,11 @@ async function deleteMaterial(id: string) {
     <!-- Delete confirmation modal -->
     <BaseModal
       :open="showDeleteConfirm !== null"
-      title="Material löschen?"
+      title="Ausrüstung löschen?"
       @close="showDeleteConfirm = null"
     >
       <p class="text-earth-300">
-        Möchtest du dieses Material wirklich löschen?
+        Möchtest du diese Ausrüstung wirklich löschen?
         Alle Zuweisungen zu Projekten werden ebenfalls entfernt.
       </p>
       <template #footer>
@@ -275,7 +262,7 @@ async function deleteMaterial(id: string) {
           <BaseButton
             variant="danger"
             full-width
-            @click="deleteMaterial(showDeleteConfirm!)"
+            @click="deleteEquipment(showDeleteConfirm!)"
           >
             Löschen
           </BaseButton>

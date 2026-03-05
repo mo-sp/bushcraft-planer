@@ -71,6 +71,7 @@ export const useMaterialStore = defineStore('materials', () => {
     const material: Material = {
       id: generateId(),
       name: input.name,
+      specifications: input.specifications,
       unit: input.unit,
       currentStock: input.currentStock ?? 0,
       icon: input.icon,

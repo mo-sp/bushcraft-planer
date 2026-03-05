@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { LayoutDashboard, Warehouse, Settings } from 'lucide-vue-next'
+import { LayoutDashboard, Warehouse, Backpack, Settings } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
 
 const navItems = [
   { name: 'dashboard', label: 'Projekte', icon: LayoutDashboard, path: '/' },
-  { name: 'inventory', label: 'Materiallager', icon: Warehouse, path: '/inventory' },
-  { name: 'settings', label: 'Einstellungen', icon: Settings, path: '/settings' }
+  { name: 'inventory', label: 'Material', icon: Warehouse, path: '/inventory' },
+  { name: 'equipment', label: 'Ausrüstung', icon: Backpack, path: '/equipment' },
+  { name: 'settings', label: 'Settings', icon: Settings, path: '/settings' }
 ]
 
 const currentRoute = computed(() => route.name)
@@ -26,7 +27,7 @@ function navigate(path: string) {
         v-for="item in navItems"
         :key="item.name"
         :class="[
-          'flex flex-col items-center gap-1 py-3 px-4 min-w-[70px] transition-colors',
+          'flex flex-col items-center gap-1.5 py-4 px-5 min-w-[90px] transition-colors',
           currentRoute === item.name
             ? 'text-forest-400'
             : 'text-earth-500 active:text-earth-400'
@@ -36,11 +37,11 @@ function navigate(path: string) {
         <component
           :is="item.icon"
           :class="[
-            'w-6 h-6 transition-transform',
+            'w-8 h-8 transition-transform',
             currentRoute === item.name ? 'scale-110' : ''
           ]"
         />
-        <span class="text-xs font-medium">{{ item.label }}</span>
+        <span class="text-sm font-medium">{{ item.label }}</span>
       </button>
     </div>
   </nav>

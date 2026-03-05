@@ -28,6 +28,12 @@ const router = createRouter({
       meta: { title: 'Materialien' }
     },
     {
+      path: '/equipment',
+      name: 'equipment',
+      component: () => import('@pages/EquipmentPage.vue'),
+      meta: { title: 'Ausrüstung' }
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: () => import('@pages/SettingsPage.vue'),
