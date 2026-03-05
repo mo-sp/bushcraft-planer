@@ -13,8 +13,8 @@ withDefaults(defineProps<Props>(), {
 <template>
   <div
     :class="[
-      'bg-white rounded-2xl shadow-card transition-shadow duration-200',
-      { 'hover:shadow-card-hover cursor-pointer': hoverable },
+      'bg-deep-100 rounded-2xl shadow-card transition-all duration-200 border border-deep-50/30',
+      { 'hover:shadow-card-hover hover:border-forest-600/50 cursor-pointer active:scale-[0.98]': hoverable },
       {
         'p-0': padding === 'none',
         'p-3': padding === 'sm',

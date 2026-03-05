@@ -14,14 +14,13 @@ describe('useProjectStore', () => {
     expect(store.error).toBeNull()
   })
 
-  it('should provide projectsByCategory computed', () => {
+  it('should provide allCategories computed', () => {
     const store = useProjectStore()
-    const grouped = store.projectsByCategory
+    const categories = store.allCategories
 
-    expect(grouped.shelter).toEqual([])
-    expect(grouped.fire).toEqual([])
-    expect(grouped.tools).toEqual([])
-    expect(grouped.custom).toEqual([])
+    expect(categories.construction).toBe('Bauprojekte')
+    expect(categories.exploration).toBe('Erkundung')
+    expect(categories.tools).toBe('Werkzeuge & Ausrüstung')
   })
 
   it('should provide projectsByStatus computed', () => {

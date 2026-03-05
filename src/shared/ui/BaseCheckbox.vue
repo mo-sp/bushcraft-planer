@@ -43,7 +43,7 @@ function toggle() {
         'flex items-center justify-center rounded-lg border-2 transition-all duration-200',
         isChecked
           ? 'bg-forest-600 border-forest-600'
-          : 'bg-white border-earth-300',
+          : 'bg-deep-300 border-deep-100',
         {
           'w-5 h-5': size === 'sm',
           'w-6 h-6': size === 'md',
@@ -67,8 +67,7 @@ function toggle() {
     <span
       v-if="label"
       :class="[
-        'text-bark-700',
-        { 'line-through text-bark-400': isChecked },
+        { 'line-through text-earth-500': isChecked, 'text-earth-200': !isChecked },
         {
           'text-sm': size === 'sm',
           'text-base': size === 'md',

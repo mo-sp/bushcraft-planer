@@ -22,9 +22,9 @@ const percentage = computed(() => {
 
 const statusColor = computed(() => {
   if (props.color !== 'status') return null
-  if (percentage.value >= 100) return 'bg-status-completed'
-  if (percentage.value > 0) return 'bg-status-progress'
-  return 'bg-status-planned'
+  if (percentage.value >= 100) return 'bg-green-500'
+  if (percentage.value > 0) return 'bg-amber-500'
+  return 'bg-gray-500'
 })
 </script>
 
@@ -32,7 +32,7 @@ const statusColor = computed(() => {
   <div class="flex items-center gap-2">
     <div
       :class="[
-        'flex-1 bg-earth-200 rounded-full overflow-hidden',
+        'flex-1 bg-deep-100 rounded-full overflow-hidden',
         {
           'h-1': size === 'sm',
           'h-2': size === 'md',
@@ -51,7 +51,7 @@ const statusColor = computed(() => {
     <span
       v-if="showLabel"
       :class="[
-        'text-bark-600 font-medium tabular-nums',
+        'text-earth-400 font-medium tabular-nums',
         {
           'text-xs': size === 'sm',
           'text-sm': size === 'md',

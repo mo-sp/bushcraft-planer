@@ -24,7 +24,22 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-earth-100">
+  <div class="min-h-screen flex flex-col bg-deep-200">
+    <!-- Header with brand -->
+    <header class="bg-deep-400 safe-top sticky top-0 z-50 border-b border-deep-100/20">
+      <div class="flex items-center justify-center gap-3 px-4 py-2">
+        <img
+          src="/logo.jpg"
+          alt="Nature Boyz Logo"
+          class="w-12 h-12 rounded-lg object-cover"
+        />
+        <div class="text-center">
+          <h1 class="text-xl font-bold text-forest-300 tracking-wide">Nature Boyz</h1>
+          <p class="text-xs text-forest-500 -mt-0.5">Bushcraft Project Planer</p>
+        </div>
+      </div>
+    </header>
+
     <!-- Offline indicator -->
     <Transition
       enter-active-class="transform transition duration-300"
@@ -36,7 +51,7 @@ onMounted(async () => {
     >
       <div
         v-if="!isOnline"
-        class="bg-amber-500 text-white text-center py-2 text-sm font-medium safe-top"
+        class="bg-amber-600 text-white text-center py-2 text-sm font-medium"
       >
         Offline - Änderungen werden lokal gespeichert
       </div>
@@ -48,8 +63,8 @@ onMounted(async () => {
       class="flex-1 flex items-center justify-center"
     >
       <div class="flex flex-col items-center gap-4">
-        <div class="w-12 h-12 border-4 border-forest-200 border-t-forest-600 rounded-full animate-spin" />
-        <p class="text-bark-600">Lade Daten...</p>
+        <div class="w-12 h-12 border-4 border-forest-700 border-t-forest-400 rounded-full animate-spin" />
+        <p class="text-earth-300">Lade Daten...</p>
       </div>
     </div>
 

@@ -1,4 +1,4 @@
-export type ProjectCategory = 'shelter' | 'fire' | 'tools' | 'custom'
+export type ProjectCategory = 'construction' | 'exploration' | 'tools' | 'custom' | string
 
 export type ProjectStatus = 'planned' | 'in_progress' | 'completed'
 
@@ -7,9 +7,11 @@ export interface Project {
   name: string
   description: string
   category: ProjectCategory
+  customCategoryName?: string
   imageUrl?: string
   imagePlaceholder: string
   status: ProjectStatus
+  notes: string
   createdAt: Date
   updatedAt: Date
   createdBy: string
@@ -20,6 +22,8 @@ export interface CreateProjectInput {
   name: string
   description: string
   category: ProjectCategory
+  customCategoryName?: string
+  notes?: string
   imageUrl?: string
 }
 
@@ -27,22 +31,24 @@ export interface UpdateProjectInput {
   name?: string
   description?: string
   category?: ProjectCategory
+  customCategoryName?: string
   status?: ProjectStatus
+  notes?: string
   imageUrl?: string
 }
 
-export const PROJECT_CATEGORY_LABELS: Record<ProjectCategory, string> = {
-  shelter: 'Shelter & Unterkünfte',
-  fire: 'Feuer & Kochen',
+export const PROJECT_CATEGORY_LABELS: Record<string, string> = {
+  construction: 'Bauprojekte',
+  exploration: 'Erkundung',
   tools: 'Werkzeuge & Ausrüstung',
-  custom: 'Eigene Kategorie'
+  custom: 'Neue Kategorie'
 }
 
-export const PROJECT_CATEGORY_ICONS: Record<ProjectCategory, string> = {
-  shelter: 'tent',
-  fire: 'flame',
+export const PROJECT_CATEGORY_ICONS: Record<string, string> = {
+  construction: 'building',
+  exploration: 'compass',
   tools: 'hammer',
-  custom: 'folder'
+  custom: 'plus'
 }
 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {

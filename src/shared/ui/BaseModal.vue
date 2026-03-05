@@ -48,7 +48,7 @@ watch(() => props.open, (isOpen) => {
       >
         <!-- Backdrop -->
         <div
-          class="absolute inset-0 bg-bark-900/50 backdrop-blur-sm"
+          class="absolute inset-0 bg-deep-500/80 backdrop-blur-sm"
           @click="close"
         />
 
@@ -63,22 +63,22 @@ watch(() => props.open, (isOpen) => {
         >
           <div
             v-if="open"
-            class="relative w-full max-w-lg max-h-[85vh] bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden flex flex-col safe-bottom"
+            class="relative w-full max-w-lg max-h-[85vh] bg-deep-200 rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden flex flex-col safe-bottom border border-deep-50/30"
           >
             <!-- Header -->
             <div
               v-if="title || closable"
-              class="flex items-center justify-between p-4 border-b border-earth-200"
+              class="flex items-center justify-between p-4 border-b border-deep-100"
             >
-              <h2 class="text-lg font-semibold text-bark-800">
+              <h2 class="text-lg font-semibold text-earth-100">
                 {{ title }}
               </h2>
               <button
                 v-if="closable"
-                class="p-2 -mr-2 rounded-full hover:bg-earth-200 transition-colors"
+                class="p-2 -mr-2 rounded-full hover:bg-deep-100 transition-colors"
                 @click="close"
               >
-                <X class="w-5 h-5 text-bark-600" />
+                <X class="w-5 h-5 text-earth-400" />
               </button>
             </div>
 
@@ -90,7 +90,7 @@ watch(() => props.open, (isOpen) => {
             <!-- Footer -->
             <div
               v-if="$slots.footer"
-              class="p-4 border-t border-earth-200 bg-earth-50"
+              class="p-4 border-t border-deep-100 bg-deep-300"
             >
               <slot name="footer" />
             </div>

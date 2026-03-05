@@ -3,6 +3,8 @@ export interface Task {
   projectId: string
   title: string
   description?: string
+  duration?: number        // Geplante Dauer in Minuten
+  manpower: number         // Benötigte Mannstärke (default 1)
   isCompleted: boolean
   order: number
   createdAt: Date
@@ -14,11 +16,15 @@ export interface CreateTaskInput {
   projectId: string
   title: string
   description?: string
+  duration?: number
+  manpower?: number
 }
 
 export interface UpdateTaskInput {
   title?: string
   description?: string
+  duration?: number
+  manpower?: number
   isCompleted?: boolean
   order?: number
 }

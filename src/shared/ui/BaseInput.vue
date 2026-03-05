@@ -32,10 +32,10 @@ const inputValue = computed({
   <div class="flex flex-col gap-1.5">
     <label
       v-if="label"
-      class="text-sm font-medium text-bark-700"
+      class="text-sm font-medium text-earth-200"
     >
       {{ label }}
-      <span v-if="required" class="text-red-500">*</span>
+      <span v-if="required" class="text-red-400">*</span>
     </label>
     <input
       v-model="inputValue"
@@ -44,15 +44,15 @@ const inputValue = computed({
       :disabled="disabled"
       :required="required"
       :class="[
-        'w-full px-4 py-3 rounded-xl border-2 bg-white text-bark-800 placeholder-bark-400 transition-colors duration-200',
+        'w-full px-4 py-3 rounded-xl border-2 bg-deep-300 text-earth-100 placeholder-earth-500 transition-colors duration-200',
         'focus:outline-none focus:ring-0',
         error
-          ? 'border-red-400 focus:border-red-500'
-          : 'border-earth-200 focus:border-forest-500',
+          ? 'border-red-500 focus:border-red-400'
+          : 'border-deep-100 focus:border-forest-500',
         { 'opacity-50 cursor-not-allowed': disabled }
       ]"
     >
-    <p v-if="error" class="text-sm text-red-500">
+    <p v-if="error" class="text-sm text-red-400">
       {{ error }}
     </p>
   </div>

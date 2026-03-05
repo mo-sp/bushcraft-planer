@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Tent, Flame, Hammer, Folder, Filter } from 'lucide-vue-next'
+import { Plus, Building2, Compass, Hammer, FolderPlus, Filter, Trees } from 'lucide-vue-next'
 import { useProjectStore } from '@entities/project/model/store'
 import { useTaskStore } from '@entities/task/model/store'
-import type { ProjectCategory, ProjectStatus } from '@entities/project/model/types'
-import { PROJECT_CATEGORY_LABELS, PROJECT_STATUS_LABELS } from '@entities/project/model/types'
+import type { ProjectStatus } from '@entities/project/model/types'
+import { PROJECT_STATUS_LABELS } from '@entities/project/model/types'
 import { BaseCard, BaseButton, BaseBadge, BaseProgress, BaseEmptyState } from '@shared/ui'
 
 const router = useRouter()
@@ -13,15 +13,19 @@ const projectStore = useProjectStore()
 const taskStore = useTaskStore()
 
 // Filters
-const selectedCategory = ref<ProjectCategory | 'all'>('all')
+const selectedCategory = ref<string | 'all'>('all')
 const selectedStatus = ref<ProjectStatus | 'all'>('all')
 const showFilters = ref(false)
 
-const categoryIcons = {
-  shelter: Tent,
-  fire: Flame,
+const categoryIcons: Record<string, typeof Building2> = {
+  construction: Building2,
+  exploration: Compass,
   tools: Hammer,
-  custom: Folder
+  custom: FolderPlus
+}
+
+function getCategoryIcon(category: string) {
+  return categoryIcons[category] || FolderPlus
 }
 
 const filteredProjects = computed(() => {
@@ -63,6 +67,10 @@ function getStatusVariant(status: ProjectStatus) {
       return 'success'
   }
 }
+
+function getCategoryName(project: { category: string; customCategoryName?: string }) {
+  return projectStore.getCategoryName(project.category, project.customCategoryName)
+}
 </script>
 
 <template>
@@ -70,8 +78,8 @@ function getStatusVariant(status: ProjectStatus) {
     <!-- Header -->
     <header class="flex items-center justify-between mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-bark-800">Meine Projekte</h1>
-        <p class="text-bark-500 text-sm mt-1">
+        <h1 class="text-2xl font-bold text-earth-100">Unsere Projekte</h1>
+        <p class="text-earth-400 text-sm mt-1">
           {{ projectStore.projects.length }} Projekt{{ projectStore.projects.length !== 1 ? 'e' : '' }}
         </p>
       </div>
@@ -79,7 +87,7 @@ function getStatusVariant(status: ProjectStatus) {
         <BaseButton
           variant="ghost"
           size="sm"
-          :class="{ 'text-forest-600': hasFilters }"
+          :class="{ 'text-forest-400': hasFilters }"
           @click="showFilters = !showFilters"
         >
           <Filter class="w-5 h-5" />
@@ -104,31 +112,31 @@ function getStatusVariant(status: ProjectStatus) {
         <div class="space-y-3">
           <!-- Category filter -->
           <div>
-            <p class="text-sm font-medium text-bark-600 mb-2">Kategorie</p>
+            <p class="text-sm font-medium text-earth-300 mb-2">Kategorie</p>
             <div class="flex flex-wrap gap-2">
               <button
                 :class="[
                   'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
                   selectedCategory === 'all'
                     ? 'bg-forest-600 text-white'
-                    : 'bg-earth-200 text-bark-600'
+                    : 'bg-deep-200 text-earth-300 border border-deep-50/30'
                 ]"
                 @click="selectedCategory = 'all'"
               >
                 Alle
               </button>
               <button
-                v-for="(label, key) in PROJECT_CATEGORY_LABELS"
+                v-for="(label, key) in projectStore.allCategories"
                 :key="key"
                 :class="[
                   'px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5',
                   selectedCategory === key
                     ? 'bg-forest-600 text-white'
-                    : 'bg-earth-200 text-bark-600'
+                    : 'bg-deep-200 text-earth-300 border border-deep-50/30'
                 ]"
                 @click="selectedCategory = key"
               >
-                <component :is="categoryIcons[key]" class="w-4 h-4" />
+                <component :is="getCategoryIcon(key)" class="w-4 h-4" />
                 {{ label }}
               </button>
             </div>
@@ -136,14 +144,14 @@ function getStatusVariant(status: ProjectStatus) {
 
           <!-- Status filter -->
           <div>
-            <p class="text-sm font-medium text-bark-600 mb-2">Status</p>
+            <p class="text-sm font-medium text-earth-300 mb-2">Status</p>
             <div class="flex flex-wrap gap-2">
               <button
                 :class="[
                   'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
                   selectedStatus === 'all'
                     ? 'bg-forest-600 text-white'
-                    : 'bg-earth-200 text-bark-600'
+                    : 'bg-deep-200 text-earth-300 border border-deep-50/30'
                 ]"
                 @click="selectedStatus = 'all'"
               >
@@ -156,7 +164,7 @@ function getStatusVariant(status: ProjectStatus) {
                   'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
                   selectedStatus === key
                     ? 'bg-forest-600 text-white'
-                    : 'bg-earth-200 text-bark-600'
+                    : 'bg-deep-200 text-earth-300 border border-deep-50/30'
                 ]"
                 @click="selectedStatus = key"
               >
@@ -168,7 +176,7 @@ function getStatusVariant(status: ProjectStatus) {
           <!-- Clear filters -->
           <button
             v-if="hasFilters"
-            class="text-sm text-forest-600 hover:underline"
+            class="text-sm text-forest-400 hover:underline"
             @click="clearFilters"
           >
             Filter zurücksetzen
@@ -192,7 +200,7 @@ function getStatusVariant(status: ProjectStatus) {
             :style="{ backgroundColor: project.imagePlaceholder }"
           >
             <component
-              :is="categoryIcons[project.category]"
+              :is="getCategoryIcon(project.category)"
               class="w-8 h-8 text-white/80"
             />
           </div>
@@ -200,7 +208,7 @@ function getStatusVariant(status: ProjectStatus) {
           <!-- Content -->
           <div class="flex-1 min-w-0">
             <div class="flex items-start justify-between gap-2 mb-1">
-              <h3 class="font-semibold text-bark-800 truncate">
+              <h3 class="font-semibold text-earth-100 truncate">
                 {{ project.name }}
               </h3>
               <BaseBadge :variant="getStatusVariant(project.status)" size="sm">
@@ -208,7 +216,11 @@ function getStatusVariant(status: ProjectStatus) {
               </BaseBadge>
             </div>
 
-            <p class="text-sm text-bark-500 line-clamp-2 mb-2">
+            <p class="text-xs text-forest-400 mb-1">
+              {{ getCategoryName(project) }}
+            </p>
+
+            <p class="text-sm text-earth-400 line-clamp-1 mb-2">
               {{ project.description || 'Keine Beschreibung' }}
             </p>
 
@@ -220,7 +232,7 @@ function getStatusVariant(status: ProjectStatus) {
                 color="status"
                 class="flex-1"
               />
-              <span class="text-xs text-bark-500 tabular-nums">
+              <span class="text-xs text-earth-500 tabular-nums">
                 {{ taskStore.completedTasksCount(project.id) }}/{{ taskStore.totalTasksCount(project.id) }}
               </span>
             </div>
@@ -232,9 +244,9 @@ function getStatusVariant(status: ProjectStatus) {
     <!-- Empty state -->
     <BaseEmptyState
       v-else-if="projectStore.projects.length === 0"
-      :icon="Tent"
+      :icon="Trees"
       title="Noch keine Projekte"
-      description="Erstelle dein erstes Bushcraft-Projekt und beginne mit der Planung."
+      description="Erstelle euer erstes Bushcraft-Projekt und beginnt mit der Planung."
     >
       <template #action>
         <BaseButton @click="createProject">

@@ -3,31 +3,22 @@ import { ref, computed } from 'vue'
 import { db, generateId, trackChange } from '@shared/api/db'
 import type {
   Project,
-  ProjectCategory,
   ProjectStatus,
   CreateProjectInput,
   UpdateProjectInput
 } from './types'
-import { getRandomPlaceholderColor } from './types'
+import { getRandomPlaceholderColor, PROJECT_CATEGORY_LABELS } from './types'
 
 export const useProjectStore = defineStore('projects', () => {
   // State
   const projects = ref<Project[]>([])
+  const customCategories = ref<Record<string, string>>({}) // id -> name
   const loading = ref(false)
   const error = ref<string | null>(null)
 
   // Getters
-  const projectsByCategory = computed(() => {
-    const grouped: Record<ProjectCategory, Project[]> = {
-      shelter: [],
-      fire: [],
-      tools: [],
-      custom: []
-    }
-    projects.value.forEach(p => {
-      grouped[p.category].push(p)
-    })
-    return grouped
+  const allCategories = computed(() => {
+    return { ...PROJECT_CATEGORY_LABELS, ...customCategories.value }
   })
 
   const projectsByStatus = computed(() => {
@@ -52,12 +43,30 @@ export const useProjectStore = defineStore('projects', () => {
     error.value = null
     try {
       projects.value = await db.projects.orderBy('updatedAt').reverse().toArray()
+
+      // Load custom categories from localStorage
+      const stored = localStorage.getItem('customCategories')
+      if (stored) {
+        customCategories.value = JSON.parse(stored)
+      }
     } catch (e) {
       error.value = 'Fehler beim Laden der Projekte'
       console.error('Failed to load projects:', e)
     } finally {
       loading.value = false
     }
+  }
+
+  function addCustomCategory(name: string): string {
+    const id = `custom_${Date.now()}`
+    customCategories.value[id] = name
+    localStorage.setItem('customCategories', JSON.stringify(customCategories.value))
+    return id
+  }
+
+  function getCategoryName(category: string, customName?: string): string {
+    if (customName) return customName
+    return allCategories.value[category] || category
   }
 
   async function createProject(input: CreateProjectInput): Promise<Project | null> {
@@ -67,12 +76,14 @@ export const useProjectStore = defineStore('projects', () => {
       name: input.name,
       description: input.description,
       category: input.category,
+      customCategoryName: input.customCategoryName,
       imageUrl: input.imageUrl,
       imagePlaceholder: getRandomPlaceholderColor(),
       status: 'planned',
+      notes: input.notes || '',
       createdAt: now,
       updatedAt: now,
-      createdBy: 'local' // Will be replaced with user ID when auth is implemented
+      createdBy: 'local'
     }
 
     try {
@@ -139,14 +150,17 @@ export const useProjectStore = defineStore('projects', () => {
   return {
     // State
     projects,
+    customCategories,
     loading,
     error,
     // Getters
-    projectsByCategory,
+    allCategories,
     projectsByStatus,
     projectById,
     // Actions
     loadProjects,
+    addCustomCategory,
+    getCategoryName,
     createProject,
     updateProject,
     deleteProject,

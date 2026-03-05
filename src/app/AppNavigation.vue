@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { LayoutDashboard, Package, Settings } from 'lucide-vue-next'
+import { LayoutDashboard, Warehouse, Settings } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
 
 const navItems = [
   { name: 'dashboard', label: 'Projekte', icon: LayoutDashboard, path: '/' },
-  { name: 'inventory', label: 'Material', icon: Package, path: '/inventory' },
+  { name: 'inventory', label: 'Materiallager', icon: Warehouse, path: '/inventory' },
   { name: 'settings', label: 'Einstellungen', icon: Settings, path: '/settings' }
 ]
 
@@ -20,16 +20,16 @@ function navigate(path: string) {
 </script>
 
 <template>
-  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-earth-200 safe-bottom z-40">
+  <nav class="fixed bottom-0 left-0 right-0 bg-deep-400 border-t border-deep-100/30 safe-bottom z-40">
     <div class="flex items-center justify-around max-w-lg mx-auto">
       <button
         v-for="item in navItems"
         :key="item.name"
         :class="[
-          'flex flex-col items-center gap-1 py-3 px-6 min-w-[80px] transition-colors',
+          'flex flex-col items-center gap-1 py-3 px-4 min-w-[70px] transition-colors',
           currentRoute === item.name
-            ? 'text-forest-600'
-            : 'text-bark-400 active:text-bark-600'
+            ? 'text-forest-400'
+            : 'text-earth-500 active:text-earth-400'
         ]"
         @click="navigate(item.path)"
       >

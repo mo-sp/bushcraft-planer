@@ -1,49 +1,75 @@
 @import "tailwindcss";
 
-/* Custom Bushcraft Color Theme */
+/* Custom Nature Boyz Color Theme - Based on Logo */
 @theme {
-  /* Nature-inspired colors */
-  --color-forest-50: #f0f7ed;
-  --color-forest-100: #d9ebcf;
-  --color-forest-200: #b5d9a3;
-  --color-forest-300: #8bc573;
-  --color-forest-400: #6aad4e;
-  --color-forest-500: #4d8f35;
-  --color-forest-600: #3d7329;
-  --color-forest-700: #2d5016;
-  --color-forest-800: #234012;
-  --color-forest-900: #1a300d;
+  /* Forest greens - from logo leaves (light to dark) */
+  --color-forest-50: #e8f5e3;
+  --color-forest-100: #c5e4b8;
+  --color-forest-200: #9fd385;
+  --color-forest-300: #7ec15a;
+  --color-forest-400: #5eaa3a;
+  --color-forest-500: #4a9030;
+  --color-forest-600: #3a7526;
+  --color-forest-700: #2a5a1c;
+  --color-forest-800: #1c4012;
+  --color-forest-900: #0f280a;
 
-  --color-earth-50: #faf7f2;
-  --color-earth-100: #f5f0e6;
-  --color-earth-200: #e8dcc7;
-  --color-earth-300: #d4c4a3;
-  --color-earth-400: #bfa87c;
-  --color-earth-500: #a68b5b;
-  --color-earth-600: #8b7049;
-  --color-earth-700: #6e5739;
-  --color-earth-800: #52412b;
-  --color-earth-900: #3a2e1e;
+  /* Deep forest - background from logo */
+  --color-deep-50: #3a4a35;
+  --color-deep-100: #2f3d2b;
+  --color-deep-200: #263223;
+  --color-deep-300: #1e281c;
+  --color-deep-400: #172015;
+  --color-deep-500: #11180f;
+  --color-deep-600: #0c120b;
+  --color-deep-700: #080d07;
+  --color-deep-800: #050804;
+  --color-deep-900: #020402;
 
-  --color-bark-50: #f7f5f3;
-  --color-bark-100: #ebe5df;
-  --color-bark-200: #d6cbc0;
-  --color-bark-300: #bba895;
-  --color-bark-400: #9f8570;
-  --color-bark-500: #846654;
-  --color-bark-600: #6a5043;
-  --color-bark-700: #523d33;
-  --color-bark-800: #3d2d26;
-  --color-bark-900: #2a1f1a;
+  /* Bark/trunk - browns from logo */
+  --color-bark-50: #f0e6d8;
+  --color-bark-100: #e0ccb0;
+  --color-bark-200: #c9a87a;
+  --color-bark-300: #b08550;
+  --color-bark-400: #8c6638;
+  --color-bark-500: #6d4f2b;
+  --color-bark-600: #543c21;
+  --color-bark-700: #3d2b18;
+  --color-bark-800: #281c10;
+  --color-bark-900: #150e08;
+
+  /* Earth tones */
+  --color-earth-50: #f5f2ed;
+  --color-earth-100: #e8e2d8;
+  --color-earth-200: #d4cabb;
+  --color-earth-300: #bfb09c;
+  --color-earth-400: #a69578;
+  --color-earth-500: #8a785a;
+  --color-earth-600: #6d5d45;
+  --color-earth-700: #524532;
+  --color-earth-800: #382f22;
+  --color-earth-900: #201b14;
+
+  /* Moss accent */
+  --color-moss-50: #e6ede4;
+  --color-moss-100: #c7d9c2;
+  --color-moss-200: #a3c299;
+  --color-moss-300: #7eab70;
+  --color-moss-400: #5a944a;
+  --color-moss-500: #3a7a2e;
+  --color-moss-600: #2d6024;
+  --color-moss-700: #21471a;
+  --color-moss-800: #163011;
+  --color-moss-900: #0c1b09;
 
   /* Status colors */
-  --color-status-planned: #64748b;
-  --color-status-progress: #f59e0b;
-  --color-status-completed: #22c55e;
+  --color-status-planned: #6b7280;
+  --color-status-progress: #d97706;
+  --color-status-completed: #16a34a;
 
   /* Shadows */
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 /* Base styles */
@@ -54,8 +80,8 @@ html {
 
 body {
   margin: 0;
-  background-color: var(--color-earth-100);
-  color: var(--color-bark-800);
+  background-color: var(--color-deep-200);
+  color: var(--color-earth-100);
   min-height: 100vh;
   min-height: 100dvh;
 }
@@ -77,11 +103,11 @@ button, a, [role="button"] {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-earth-200);
+  background: var(--color-deep-300);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-bark-400);
+  background: var(--color-forest-600);
   border-radius: 3px;
 }
 

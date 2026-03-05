@@ -71,6 +71,8 @@ export const useTaskStore = defineStore('tasks', () => {
       projectId: input.projectId,
       title: input.title,
       description: input.description,
+      duration: input.duration,
+      manpower: input.manpower ?? 1,
       isCompleted: false,
       order: maxOrder + 1,
       createdAt: now,

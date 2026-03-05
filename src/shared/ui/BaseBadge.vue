@@ -16,12 +16,12 @@ withDefaults(defineProps<Props>(), {
       'inline-flex items-center font-medium rounded-full',
       // Variants
       {
-        'bg-bark-100 text-bark-700': variant === 'default',
-        'bg-green-100 text-green-700': variant === 'success',
-        'bg-amber-100 text-amber-700': variant === 'warning',
-        'bg-red-100 text-red-700': variant === 'danger',
-        'bg-forest-100 text-forest-700': variant === 'forest',
-        'bg-earth-200 text-earth-700': variant === 'earth'
+        'bg-deep-50 text-earth-300': variant === 'default',
+        'bg-green-900/50 text-green-400': variant === 'success',
+        'bg-amber-900/50 text-amber-400': variant === 'warning',
+        'bg-red-900/50 text-red-400': variant === 'danger',
+        'bg-forest-900/50 text-forest-400': variant === 'forest',
+        'bg-earth-800/50 text-earth-300': variant === 'earth'
       },
       // Sizes
       {

@@ -1,7 +1,7 @@
 export interface Material {
   id: string
   name: string
-  unit: string
+  unit?: string           // Optional
   currentStock: number
   icon?: string
   createdAt: Date
@@ -21,7 +21,7 @@ export interface MaterialRequirement {
 
 export interface CreateMaterialInput {
   name: string
-  unit: string
+  unit?: string           // Optional
   currentStock?: number
   icon?: string
 }
