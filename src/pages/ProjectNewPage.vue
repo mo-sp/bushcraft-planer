@@ -1,19 +1,29 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Building2, Compass, Hammer, FolderPlus, Plus, Package, Backpack, Trash2, Search, Pencil, ImagePlus, X } from 'lucide-vue-next'
+import { ArrowLeft, Building2, Compass, Hammer, FolderPlus, Plus, Package, Backpack, Trash2, Search, Pencil, ImagePlus, X, Clock, Users } from 'lucide-vue-next'
 import { useProjectStore } from '@entities/project/model/store'
 import { useMaterialStore } from '@entities/material/model/store'
 import { useEquipmentStore } from '@entities/equipment/model/store'
+import { useTaskStore } from '@entities/task/model/store'
 import { PROJECT_CATEGORY_LABELS } from '@entities/project/model/types'
 import { UNIT_GROUPS } from '@entities/material/model/types'
 import { BaseButton, BaseInput, BaseTextarea, BaseModal, BaseSelect, BaseCard, BaseNumberStepper } from '@shared/ui'
+
+// Task planning state
+interface PlannedTask {
+  title: string
+  duration?: number
+  manpower: number
+}
+
 import { compressImage } from '@shared/lib/imageUtils'
 
 const router = useRouter()
 const projectStore = useProjectStore()
 const materialStore = useMaterialStore()
 const equipmentStore = useEquipmentStore()
+const taskStore = useTaskStore()
 
 const name = ref('')
 const description = ref('')
@@ -250,6 +260,58 @@ async function createNewItem() {
   }
 }
 
+// Task planning
+const plannedTasks = ref<PlannedTask[]>([])
+const showTaskModal = ref(false)
+const showEditTaskModal = ref(false)
+const editingTaskIndex = ref<number | null>(null)
+const taskForm = ref({ title: '', duration: undefined as number | undefined, manpower: 1 })
+
+function openAddTaskModal() {
+  taskForm.value = { title: '', duration: undefined, manpower: 1 }
+  showTaskModal.value = true
+}
+
+function confirmAddTask() {
+  if (!taskForm.value.title.trim()) return
+  plannedTasks.value.push({
+    title: taskForm.value.title.trim(),
+    duration: taskForm.value.duration,
+    manpower: taskForm.value.manpower
+  })
+  showTaskModal.value = false
+}
+
+function openEditTaskModal(index: number) {
+  const task = plannedTasks.value[index]
+  if (!task) return
+  editingTaskIndex.value = index
+  taskForm.value = { title: task.title, duration: task.duration, manpower: task.manpower }
+  showEditTaskModal.value = true
+}
+
+function confirmEditTask() {
+  if (editingTaskIndex.value === null || !taskForm.value.title.trim()) return
+  plannedTasks.value[editingTaskIndex.value] = {
+    title: taskForm.value.title.trim(),
+    duration: taskForm.value.duration,
+    manpower: taskForm.value.manpower
+  }
+  showEditTaskModal.value = false
+  editingTaskIndex.value = null
+}
+
+function removeTask(index: number) {
+  plannedTasks.value.splice(index, 1)
+}
+
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} Min.`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return m > 0 ? `${h} Std. ${m} Min.` : `${h} Std.`
+}
+
 function getItemDisplayName(item: { name: string; specifications?: string }) {
   if (item.specifications) {
     return `${item.name} (${item.specifications})`
@@ -291,6 +353,16 @@ async function submit() {
             requiredAmount: item.amount
           })
         }
+      }
+
+      // Create planned tasks
+      for (const task of plannedTasks.value) {
+        await taskStore.createTask({
+          projectId: project.id,
+          title: task.title,
+          duration: task.duration,
+          manpower: task.manpower
+        })
       }
 
       router.replace(`/project/${project.id}`)
@@ -435,6 +507,64 @@ function goBack() {
         >
           <Plus class="w-5 h-5" />
           <span>Material / Ausrüstung hinzufügen</span>
+        </button>
+      </div>
+
+      <!-- Planned Tasks -->
+      <div>
+        <label class="text-sm font-medium text-earth-200 mb-3 block">
+          Geplante Aufgaben
+        </label>
+
+        <!-- Task list -->
+        <div v-if="plannedTasks.length > 0" class="space-y-2 mb-3">
+          <BaseCard
+            v-for="(task, index) in plannedTasks"
+            :key="index"
+            class="!p-3"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-earth-100 truncate">{{ task.title }}</p>
+                <div class="flex items-center gap-3 text-sm text-earth-400">
+                  <span v-if="task.duration" class="flex items-center gap-1">
+                    <Clock class="w-3.5 h-3.5" />
+                    {{ formatDuration(task.duration) }}
+                  </span>
+                  <span v-if="task.manpower > 1" class="flex items-center gap-1">
+                    <Users class="w-3.5 h-3.5" />
+                    {{ task.manpower }} Personen
+                  </span>
+                </div>
+              </div>
+              <div class="flex items-center gap-1">
+                <button
+                  type="button"
+                  class="p-2 rounded-lg text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
+                  @click="openEditTaskModal(index)"
+                >
+                  <Pencil class="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  class="p-2 rounded-lg text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
+                  @click="removeTask(index)"
+                >
+                  <Trash2 class="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </BaseCard>
+        </div>
+
+        <!-- Add task button -->
+        <button
+          type="button"
+          class="w-full flex items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-deep-100 text-earth-400 hover:border-forest-500 hover:text-forest-400 transition-colors"
+          @click="openAddTaskModal"
+        >
+          <Plus class="w-5 h-5" />
+          <span>Aufgabe hinzufügen</span>
         </button>
       </div>
 
@@ -748,6 +878,96 @@ function goBack() {
             full-width
             :disabled="editAmount < 1"
             @click="confirmEdit"
+          >
+            Speichern
+          </BaseButton>
+        </div>
+      </template>
+    </BaseModal>
+
+    <!-- Add Task Modal -->
+    <BaseModal
+      :open="showTaskModal"
+      title="Aufgabe hinzufügen"
+      @close="showTaskModal = false"
+    >
+      <form @submit.prevent="confirmAddTask" class="space-y-4">
+        <BaseInput
+          v-model="taskForm.title"
+          label="Aufgabe"
+          placeholder="z.B. Holz sammeln, Stöcke zuschneiden"
+          required
+        />
+        <BaseNumberStepper
+          v-model="taskForm.duration"
+          :min="0"
+          :step="15"
+          label="Dauer (Minuten, optional)"
+        />
+        <BaseNumberStepper
+          v-model="taskForm.manpower"
+          :min="1"
+          label="Mannstärke"
+        />
+      </form>
+      <template #footer>
+        <div class="flex gap-3">
+          <BaseButton
+            variant="secondary"
+            full-width
+            @click="showTaskModal = false"
+          >
+            Abbrechen
+          </BaseButton>
+          <BaseButton
+            full-width
+            :disabled="!taskForm.title.trim()"
+            @click="confirmAddTask"
+          >
+            Hinzufügen
+          </BaseButton>
+        </div>
+      </template>
+    </BaseModal>
+
+    <!-- Edit Task Modal -->
+    <BaseModal
+      :open="showEditTaskModal"
+      title="Aufgabe bearbeiten"
+      @close="showEditTaskModal = false"
+    >
+      <form @submit.prevent="confirmEditTask" class="space-y-4">
+        <BaseInput
+          v-model="taskForm.title"
+          label="Aufgabe"
+          placeholder="z.B. Holz sammeln"
+          required
+        />
+        <BaseNumberStepper
+          v-model="taskForm.duration"
+          :min="0"
+          :step="15"
+          label="Dauer (Minuten, optional)"
+        />
+        <BaseNumberStepper
+          v-model="taskForm.manpower"
+          :min="1"
+          label="Mannstärke"
+        />
+      </form>
+      <template #footer>
+        <div class="flex gap-3">
+          <BaseButton
+            variant="secondary"
+            full-width
+            @click="showEditTaskModal = false"
+          >
+            Abbrechen
+          </BaseButton>
+          <BaseButton
+            full-width
+            :disabled="!taskForm.title.trim()"
+            @click="confirmEditTask"
           >
             Speichern
           </BaseButton>
