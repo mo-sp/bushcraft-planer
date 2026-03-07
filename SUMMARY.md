@@ -113,24 +113,51 @@ c54b0fc feat: UI-Verbesserungen ProjectDetail, Inline-Editing & Material/Equipme
 
 ---
 
-## Was noch zu tun ist (nächste Session)
+## Session 4 (2026-03-06)
+
+### 15. CLAUDE.md erstellt
+- Projekt-Referenzdatei mit Tech Stack, Architektur, Konventionen, Befehlen
+- Konventionen festgelegt: UI Deutsch, Code Englisch, Kommentare Englisch
+- Supabase: wird angebunden, Sync fuer User optional
+
+### 16. Capacitor eingerichtet
+- `@capacitor/core`, `@capacitor/cli`, `@capacitor/android` installiert
+- App-ID: `com.natureboyz.bushcraftplaner`
+- `capacitor.config.ts` mit Dark Background (#1e281c), https-Schema
+- `android/` Projekt generiert und gesynct
+- npm-Scripts: `cap:sync`, `cap:open`, `cap:run`
+- `.gitignore` um Android-Build-Artefakte erweitert
+
+### 17. Android Studio installiert
+- Via Flatpak: `com.google.AndroidStudio`
+- SDK und Emulator eingerichtet (Medium_Phone_API_36)
+
+---
+
+## Was noch zu tun ist (naechste Session)
+
+### Capacitor / Android (Prio 1)
+1. **Android-Projekt in Android Studio oeffnen** (`npm run cap:open` hat nicht funktioniert - evtl. Flatpak-Sandbox Problem, manuell oeffnen: android/ Ordner)
+2. **App auf Emulator testen** (Play-Button in Android Studio)
+3. **APK bauen** fuer echtes Geraet
 
 ### Fehlende Features
 1. **Material bei Projekterstellung**: Form erweitern
-2. **Drag & Drop** für Aufgaben-Reihenfolge
+2. **Drag & Drop** fuer Aufgaben-Reihenfolge
+3. **Supabase-Anbindung**: Backend-Sync (optional fuer User)
 
 ### Testing
 1. App im Browser testen: `npm run dev -- --host`
 2. Auf Handy testen via Network URL
-3. PWA Installation testen
+3. App auf Android Emulator testen
 
 ### Polish
 1. Animationen verbessern
-2. Touch-Feedback (Haptic)
+2. Touch-Feedback (Haptic via Capacitor)
 3. Loading-States
 4. Error-Handling
 
-## Dateien mit wichtigen Änderungen
+## Dateien mit wichtigen Aenderungen
 
 ```
 src/style.css                          # Dark Theme Farben
@@ -139,21 +166,11 @@ src/app/AppNavigation.vue              # Dark Nav
 src/entities/project/model/types.ts    # Neue Kategorien, notes Feld
 src/entities/task/model/types.ts       # duration, manpower
 src/entities/material/model/types.ts   # unit optional
-src/pages/ProjectDetailPage.vue        # Komplett überarbeitet
+src/pages/ProjectDetailPage.vue        # Komplett ueberarbeitet
 src/pages/ProjectNewPage.vue           # Custom Category Modal
+capacitor.config.ts                    # Capacitor Konfiguration
+android/                               # Android-Projekt (Capacitor)
 ```
-
-## Git Status
-```bash
-cd /home/mooo/Bushcraft-Planer
-git status    # Zeigt ungespeicherte Änderungen
-git add .
-git commit -m "feat: dark theme, neue kategorien, notizen, aufgaben-details"
-git push
-```
-
-## Screenshots
-Screenshots in `/home/mooo/Bushcraft-Planer/screenshots/` ablegen!
 
 ## Befehle
 ```bash
@@ -161,8 +178,8 @@ cd /home/mooo/Bushcraft-Planer
 npm run dev -- --host    # Dev-Server mit Netzwerk-Zugriff
 npm run build            # Produktions-Build
 npm run test             # Unit Tests
+npm run cap:sync         # Build + Sync zu Android
+npm run cap:open         # Android Studio oeffnen
+npm run cap:run          # Auf Emulator/Geraet starten
+flatpak run com.google.AndroidStudio  # Android Studio starten
 ```
-
-## Netzwerk URLs (für Handy-Test)
-- http://192.168.178.22:5174/
-- http://192.168.178.28:5174/
