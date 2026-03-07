@@ -222,11 +222,43 @@ c54b0fc feat: UI-Verbesserungen ProjectDetail, Inline-Editing & Material/Equipme
 
 ---
 
-## Was noch zu tun ist (naechste Session)
+## Session 7 (2026-03-07)
 
-### Capacitor / Android (Prio 1)
-1. **APK bauen** fuer Beta-Verteilung an Freunde
-2. **App auf Emulator testen** (Play-Button in Android Studio)
+### 29. Splash Screen
+- Full-screen intro with Nature Boyz logo (large, animated fade-in)
+- AI-generated song "Nature's Call" plays on startup
+- Credits: "Entwickelt von Claude & Moritz"
+- Version 0.8.0 Beta displayed
+- "Beliebige Taste zum Fortfahren" hint after 2s delay
+- Audio fades out smoothly on dismiss
+
+### 30. First APK Build
+- TypeScript errors fixed (number | undefined, unused vars, non-null assertions)
+- JDK 21 devel installed (was missing javac)
+- JAVA_HOME required for Gradle daemon
+- Debug APK: `android/app/build/outputs/apk/debug/app-debug.apk` (5 MB)
+- Version set to 0.8.0-beta in package.json and build.gradle
+
+### 31. Bug Fixes
+- **Project delete navigation**: Fixed crash where `project` became undefined while template still referenced it. Solution: navigate first, then delete in background
+- **Cascade delete tracking**: Project deletion now tracks dependent tasks, material_requirements and equipment_requirements in syncMeta for proper Supabase sync
+- **Equipment requirements cleanup**: Was missing from project delete cascade (only tasks + material_requirements were deleted)
+- **Sync FK constraint handling**: 23503 errors (orphaned requirements) now handled gracefully - records pushed individually, orphans cleaned up locally
+- **No more page reloads**: "Lokale Daten loeschen" and Sync now reload stores in-place instead of `window.location.reload()`
+
+### 32. Settings Polish
+- "Alle Daten loeschen" renamed to "Lokale Daten vollstaendig loeschen"
+- Version in Info section updated to 0.8.0 Beta
+- Stores properly hoisted to top-level scope (were local to seedData function)
+
+### Commits
+```
+TBD
+```
+
+---
+
+## Was noch zu tun ist (naechste Session)
 
 ### Fehlende Features
 1. **Drag & Drop** fuer Aufgaben-Reihenfolge
@@ -237,6 +269,10 @@ c54b0fc feat: UI-Verbesserungen ProjectDetail, Inline-Editing & Material/Equipme
 2. Touch-Feedback (Haptic via Capacitor)
 3. Loading-States
 4. Error-Handling
+
+### Release
+1. Release-APK mit Signierung
+2. Version 0.9 und 1.0 Planung
 
 ## Dateien mit wichtigen Aenderungen
 

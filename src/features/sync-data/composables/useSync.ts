@@ -301,7 +301,20 @@ async function syncTable<T extends { id: string; updatedAt: Date }>(
     const batch = toUpsertRemote.slice(i, i + 50)
     const { error } = await supabase.from(config.remoteTableName).upsert(batch)
     if (error) {
-      result.errors.push(`Upsert ${config.remoteTableName}: ${error.message}`)
+      if (error.code === '23503') {
+        // FK constraint violation - push records one by one, skip orphans
+        for (const record of batch) {
+          const { error: singleErr } = await supabase.from(config.remoteTableName).upsert(record)
+          if (singleErr) {
+            // Orphaned record - remove locally
+            await localTable.delete(record.id)
+          } else {
+            result.pushed++
+          }
+        }
+      } else {
+        result.errors.push(`Upsert ${config.remoteTableName}: ${error.message}`)
+      }
     } else {
       result.pushed += batch.length
     }

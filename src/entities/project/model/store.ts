@@ -123,12 +123,23 @@ export const useProjectStore = defineStore('projects', () => {
 
   async function deleteProject(id: string): Promise<boolean> {
     try {
+      // Collect dependent IDs before deleting, so we can track them for sync
+      const taskIds = await db.tasks.where('projectId').equals(id).primaryKeys()
+      const matReqIds = await db.materialRequirements.where('projectId').equals(id).primaryKeys()
+      const eqReqIds = await db.equipmentRequirements.where('projectId').equals(id).primaryKeys()
+
       await db.projects.delete(id)
       await trackChange('projects', id, 'delete')
 
-      // Also delete related tasks and material requirements
+      // Delete related records and track each for sync
       await db.tasks.where('projectId').equals(id).delete()
+      for (const tid of taskIds) await trackChange('tasks', tid, 'delete')
+
       await db.materialRequirements.where('projectId').equals(id).delete()
+      for (const mid of matReqIds) await trackChange('materialRequirements', mid, 'delete')
+
+      await db.equipmentRequirements.where('projectId').equals(id).delete()
+      for (const eid of eqReqIds) await trackChange('equipmentRequirements', eid, 'delete')
 
       // Update local state
       const index = projects.value.findIndex(p => p.id === id)

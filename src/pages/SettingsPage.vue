@@ -6,6 +6,7 @@ import {
 } from 'lucide-vue-next'
 import { db } from '@shared/api/db'
 import { isSupabaseConfigured } from '@shared/api/supabase'
+import { useProjectStore } from '@entities/project/model/store'
 import { useMaterialStore } from '@entities/material/model/store'
 import { useEquipmentStore } from '@entities/equipment/model/store'
 import { SEED_MATERIALS, SEED_EQUIPMENT } from '@shared/lib/seedData'
@@ -13,12 +14,15 @@ import { useSync } from '@features/sync-data'
 import { BaseCard, BaseButton, BaseModal } from '@shared/ui'
 
 const isOnline = useOnline()
+const projectStore = useProjectStore()
+const materialStore = useMaterialStore()
+const equipmentStore = useEquipmentStore()
 const showClearConfirm = ref(false)
 const isClearing = ref(false)
 const isSeeding = ref(false)
 const seedResult = ref<string | null>(null)
 
-const { isSyncing, lastSyncedAt, syncError, lastResult, fullSync } = useSync()
+const { isSyncing, lastSyncedAt, syncError, fullSync } = useSync()
 const syncMessage = ref<string | null>(null)
 
 async function handleSync() {
@@ -29,9 +33,13 @@ async function handleSync() {
   } else {
     syncMessage.value = `Sync erfolgreich - ${result.pushed} hoch, ${result.pulled} runter, ${result.deleted} gelöscht`
   }
-  // Reload stores to reflect pulled data
-  if (result.pulled > 0) {
-    window.location.reload()
+  // Reload stores to reflect pulled/deleted data
+  if (result.pulled > 0 || result.deleted > 0) {
+    await Promise.all([
+      projectStore.loadProjects(),
+      materialStore.loadMaterials(),
+      equipmentStore.loadEquipment()
+    ])
   }
 }
 
@@ -41,9 +49,6 @@ async function loadSeedData() {
   seedResult.value = null
 
   try {
-    const materialStore = useMaterialStore()
-    const equipmentStore = useEquipmentStore()
-
     await materialStore.loadMaterials()
     await equipmentStore.loadEquipment()
 
@@ -106,7 +111,13 @@ async function clearAllData() {
     await db.syncMeta.clear()
     localStorage.removeItem('customCategories')
 
-    window.location.reload()
+    // Reload stores instead of full page reload
+    await Promise.all([
+      projectStore.loadProjects(),
+      materialStore.loadMaterials(),
+      equipmentStore.loadEquipment()
+    ])
+    showClearConfirm.value = false
   } finally {
     isClearing.value = false
   }
@@ -202,7 +213,7 @@ async function clearAllData() {
           @click="showClearConfirm = true"
         >
           <Trash2 class="w-5 h-5" />
-          Alle Daten löschen
+          Lokale Daten vollständig löschen
         </BaseButton>
       </div>
     </BaseCard>
@@ -214,7 +225,7 @@ async function clearAllData() {
       <div class="space-y-3">
         <div class="flex items-center justify-between">
           <span class="text-sm text-earth-400">Version</span>
-          <span class="text-sm text-earth-200 font-medium">1.0.0</span>
+          <span class="text-sm text-earth-200 font-medium">0.8.0 Beta</span>
         </div>
         <div class="flex items-center justify-between">
           <span class="text-sm text-earth-400">Framework</span>
@@ -240,7 +251,7 @@ async function clearAllData() {
     <!-- Clear data modal -->
     <BaseModal
       :open="showClearConfirm"
-      title="Alle Daten löschen?"
+      title="Lokale Daten vollständig löschen?"
       @close="showClearConfirm = false"
     >
       <p class="text-earth-300">

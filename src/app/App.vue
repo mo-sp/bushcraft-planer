@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { RouterView } from 'vue-router'
 import { useOnline } from '@vueuse/core'
 import AppNavigation from './AppNavigation.vue'
+import SplashScreen from './SplashScreen.vue'
 import { useProjectStore } from '@entities/project/model/store'
 import { useMaterialStore } from '@entities/material/model/store'
 import { useEquipmentStore } from '@entities/equipment/model/store'
@@ -12,6 +13,7 @@ const materialStore = useMaterialStore()
 const equipmentStore = useEquipmentStore()
 const isOnline = useOnline()
 const isLoading = ref(true)
+const showSplash = ref(true)
 
 onMounted(async () => {
   try {
@@ -27,6 +29,9 @@ onMounted(async () => {
 </script>
 
 <template>
+  <!-- Splash Screen -->
+  <SplashScreen v-if="showSplash" @done="showSplash = false" />
+
   <div class="min-h-screen flex flex-col bg-deep-200">
     <!-- Header with brand -->
     <header class="bg-deep-400 safe-top sticky top-0 z-50 border-b border-deep-100/20">

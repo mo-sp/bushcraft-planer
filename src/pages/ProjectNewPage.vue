@@ -265,10 +265,10 @@ const plannedTasks = ref<PlannedTask[]>([])
 const showTaskModal = ref(false)
 const showEditTaskModal = ref(false)
 const editingTaskIndex = ref<number | null>(null)
-const taskForm = ref({ title: '', duration: undefined as number | undefined, manpower: 1 })
+const taskForm = ref({ title: '', duration: 0, manpower: 1 })
 
 function openAddTaskModal() {
-  taskForm.value = { title: '', duration: undefined, manpower: 1 }
+  taskForm.value = { title: '', duration: 0, manpower: 1 }
   showTaskModal.value = true
 }
 
@@ -286,7 +286,7 @@ function openEditTaskModal(index: number) {
   const task = plannedTasks.value[index]
   if (!task) return
   editingTaskIndex.value = index
-  taskForm.value = { title: task.title, duration: task.duration, manpower: task.manpower }
+  taskForm.value = { title: task.title, duration: task.duration ?? 0, manpower: task.manpower }
   showEditTaskModal.value = true
 }
 

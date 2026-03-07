@@ -339,15 +339,11 @@ function getEquipmentStock(id: string): number {
 async function deleteProject() {
   if (isDeleting.value) return
   isDeleting.value = true
+  showDeleteConfirm.value = false
 
-  try {
-    const success = await projectStore.deleteProject(projectId.value)
-    if (success) {
-      router.replace('/')
-    }
-  } finally {
-    isDeleting.value = false
-  }
+  const id = projectId.value
+  router.replace('/')
+  await projectStore.deleteProject(id)
 }
 
 function getStatusVariant(status: ProjectStatus) {
@@ -1156,7 +1152,7 @@ async function removeSketch() {
       @close="showDeleteConfirm = false"
     >
       <p class="text-earth-300">
-        Möchtest du das Projekt "{{ project.name }}" wirklich löschen?
+        Möchtest du das Projekt "{{ project?.name }}" wirklich löschen?
         Diese Aktion kann nicht rückgängig gemacht werden.
       </p>
       <template #footer>
