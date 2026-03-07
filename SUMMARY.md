@@ -184,21 +184,53 @@ c54b0fc feat: UI-Verbesserungen ProjectDetail, Inline-Editing & Material/Equipme
 
 ---
 
+## Session 6 (2026-03-07)
+
+### 25. Seed Data & Settings
+- 25 default materials (Stoecke, Paracord, Steine, Lehm, Moos, etc.)
+- 31 default equipment items (Messer, Axt, Spaltaxt, Fernglas, Tarp, etc.)
+- "Standarddaten laden" button in Settings (skips duplicates)
+- Fix: Equipment tables now cleared on "Alle Daten loeschen"
+
+### 26. Task Planning on Project Creation
+- New "Geplante Aufgaben" section in ProjectNewPage
+- Add tasks with title, duration (15-min steps), manpower
+- Edit/delete tasks before project creation
+- Tasks saved to DB when project is created
+
+### 27. Mobile Compatibility Fix
+- `crypto.randomUUID()` fails on mobile via HTTP (non-secure context)
+- Fallback UUID v4 generator using `crypto.getRandomValues()`
+
+### 28. Supabase Integration
+- Supabase project created (free tier, RLS disabled, shared data)
+- DB schema: 6 tables (projects, tasks, materials, equipment + requirements)
+- `supabase-schema.sql` in project root
+- `.env` with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+- Bidirectional sync service (`useSync` composable)
+  - Push local changes to Supabase, pull remote changes
+  - Last-write-wins conflict resolution (updated_at)
+  - Delete tracking via syncMeta
+  - Batch upserts (50 per batch)
+- "Jetzt synchronisieren" button in Settings with result display
+- supabase.ts cleaned up (removed old unused Database types)
+
+### Commits
+```
+399ec5e feat: seed data, task planning on project creation & mobile UUID fix
+```
+
+---
+
 ## Was noch zu tun ist (naechste Session)
 
 ### Capacitor / Android (Prio 1)
-1. **Android-Projekt in Android Studio oeffnen** (`npm run cap:open` hat nicht funktioniert - evtl. Flatpak-Sandbox Problem, manuell oeffnen: android/ Ordner)
+1. **APK bauen** fuer Beta-Verteilung an Freunde
 2. **App auf Emulator testen** (Play-Button in Android Studio)
-3. **APK bauen** fuer echtes Geraet
 
 ### Fehlende Features
 1. **Drag & Drop** fuer Aufgaben-Reihenfolge
-2. **Supabase-Anbindung**: Backend-Sync (optional fuer User)
-
-### Testing
-1. App im Browser testen: `npm run dev -- --host`
-2. Auf Handy testen via Network URL
-3. App auf Android Emulator testen
+2. **Auto-Sync** beim App-Start (aktuell nur manuell)
 
 ### Polish
 1. Animationen verbessern
@@ -216,13 +248,20 @@ src/entities/project/model/types.ts    # Neue Kategorien, notes Feld
 src/entities/task/model/types.ts       # duration, manpower
 src/entities/material/model/types.ts   # unit optional, UNIT_GROUPS
 src/pages/ProjectDetailPage.vue        # Komplett ueberarbeitet
-src/pages/ProjectNewPage.vue           # Custom Category Modal, Image Upload
+src/pages/ProjectNewPage.vue           # Custom Category Modal, Image Upload, Task Planning
+src/pages/SettingsPage.vue             # Seed Data, Sync UI
 src/pages/DashboardPage.vue            # Search, Image Thumbnails
+src/features/sync-data/               # Supabase Sync Service
 src/shared/ui/BaseNumberStepper.vue    # +/- Stepper Component
 src/shared/ui/BaseSelect.vue           # Optgroup Support
 src/shared/lib/imageUtils.ts           # Image Compression Utility
+src/shared/lib/seedData.ts            # Default Materials & Equipment
+src/shared/api/db.ts                   # Dexie DB + UUID Fallback
+src/shared/api/supabase.ts            # Supabase Client
+supabase-schema.sql                    # DB Schema fuer Supabase
 capacitor.config.ts                    # Capacitor Konfiguration
 android/                               # Android-Projekt (Capacitor)
+.env                                   # Supabase Credentials (nicht im Repo)
 ```
 
 ## Befehle

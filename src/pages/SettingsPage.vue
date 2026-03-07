@@ -2,13 +2,14 @@
 import { ref, computed } from 'vue'
 import { useOnline } from '@vueuse/core'
 import {
-  Cloud, CloudOff, Database, Trash2, Info, PackagePlus
+  Cloud, CloudOff, Database, Trash2, Info, PackagePlus, RefreshCw
 } from 'lucide-vue-next'
 import { db } from '@shared/api/db'
 import { isSupabaseConfigured } from '@shared/api/supabase'
 import { useMaterialStore } from '@entities/material/model/store'
 import { useEquipmentStore } from '@entities/equipment/model/store'
 import { SEED_MATERIALS, SEED_EQUIPMENT } from '@shared/lib/seedData'
+import { useSync } from '@features/sync-data'
 import { BaseCard, BaseButton, BaseModal } from '@shared/ui'
 
 const isOnline = useOnline()
@@ -16,6 +17,23 @@ const showClearConfirm = ref(false)
 const isClearing = ref(false)
 const isSeeding = ref(false)
 const seedResult = ref<string | null>(null)
+
+const { isSyncing, lastSyncedAt, syncError, lastResult, fullSync } = useSync()
+const syncMessage = ref<string | null>(null)
+
+async function handleSync() {
+  syncMessage.value = null
+  const result = await fullSync()
+  if (result.errors.length > 0) {
+    syncMessage.value = `Sync mit ${result.errors.length} Fehler(n) - ${result.pushed} hoch, ${result.pulled} runter`
+  } else {
+    syncMessage.value = `Sync erfolgreich - ${result.pushed} hoch, ${result.pulled} runter, ${result.deleted} gelöscht`
+  }
+  // Reload stores to reflect pulled data
+  if (result.pulled > 0) {
+    window.location.reload()
+  }
+}
 
 async function loadSeedData() {
   if (isSeeding.value) return
@@ -70,6 +88,10 @@ const syncStatus = computed(() => {
   return { text: 'Verbunden', icon: Cloud, color: 'text-green-400' }
 })
 
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+}
+
 async function clearAllData() {
   if (isClearing.value) return
   isClearing.value = true
@@ -84,7 +106,6 @@ async function clearAllData() {
     await db.syncMeta.clear()
     localStorage.removeItem('customCategories')
 
-    // Reload the page to reset all stores
     window.location.reload()
   } finally {
     isClearing.value = false
@@ -101,7 +122,7 @@ async function clearAllData() {
 
     <!-- Sync status -->
     <BaseCard class="mb-4">
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-4 mb-4">
         <div
           :class="[
             'w-12 h-12 rounded-xl flex items-center justify-center',
@@ -114,18 +135,36 @@ async function clearAllData() {
             :class="['w-6 h-6', syncStatus.color]"
           />
         </div>
-        <div>
+        <div class="flex-1">
           <h3 class="font-medium text-earth-100">Synchronisation</h3>
           <p :class="['text-sm', syncStatus.color]">
             {{ syncStatus.text }}
           </p>
+          <p v-if="lastSyncedAt" class="text-xs text-earth-500">
+            Zuletzt: {{ formatTime(lastSyncedAt) }}
+          </p>
         </div>
       </div>
 
-      <div v-if="!isSupabaseConfigured()" class="mt-4 p-3 bg-deep-200 rounded-lg">
+      <div v-if="isSupabaseConfigured() && isOnline" class="space-y-3">
+        <BaseButton
+          variant="primary"
+          full-width
+          :loading="isSyncing"
+          @click="handleSync"
+        >
+          <RefreshCw class="w-5 h-5" />
+          Jetzt synchronisieren
+        </BaseButton>
+
+        <p v-if="syncMessage" :class="['text-sm text-center', syncError ? 'text-amber-400' : 'text-forest-400']">
+          {{ syncMessage }}
+        </p>
+      </div>
+
+      <div v-else-if="!isSupabaseConfigured()" class="p-3 bg-deep-200 rounded-lg">
         <p class="text-sm text-earth-400">
           Supabase ist nicht konfiguriert. Die App funktioniert vollständig offline.
-          Um Sync zu aktivieren, füge die Supabase-Umgebungsvariablen hinzu.
         </p>
       </div>
     </BaseCard>
