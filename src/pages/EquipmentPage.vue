@@ -2,17 +2,21 @@
 import { ref, computed } from 'vue'
 import { Plus, Minus, Trash2, Backpack, Search, Edit3 } from 'lucide-vue-next'
 import { useEquipmentStore } from '@entities/equipment/model/store'
+import { useProjectStore } from '@entities/project/model/store'
 import type { Equipment } from '@entities/equipment/model/types'
 import {
   BaseButton, BaseCard, BaseInput, BaseModal, BaseEmptyState, BaseNumberStepper
 } from '@shared/ui'
 
 const equipmentStore = useEquipmentStore()
+const projectStore = useProjectStore()
 
 const searchQuery = ref('')
 const showAddEquipment = ref(false)
 const showEditEquipment = ref(false)
 const showDeleteConfirm = ref<string | null>(null)
+const showDetailModal = ref(false)
+const detailEquipment = ref<(Equipment & { totalRequired: number }) | null>(null)
 
 // New equipment form
 const newEquipment = ref({
@@ -38,6 +42,20 @@ const filteredEquipment = computed(() => {
     (e.specifications && e.specifications.toLowerCase().includes(query))
   )
 })
+
+// Get projects assigned to an equipment item
+function getAssignedProjects(equipmentId: string) {
+  const reqs = equipmentStore.requirementsByEquipment(equipmentId)
+  return reqs.map(r => {
+    const project = projectStore.projectById(r.projectId)
+    return project ? { name: project.name, amount: r.requiredAmount } : null
+  }).filter(Boolean) as { name: string; amount: number }[]
+}
+
+function openDetail(item: Equipment & { totalRequired: number }) {
+  detailEquipment.value = item
+  showDetailModal.value = true
+}
 
 function resetForm() {
   newEquipment.value = {
@@ -108,15 +126,17 @@ async function deleteEquipment(id: string) {
       </BaseButton>
     </header>
 
-    <!-- Search -->
-    <div class="relative mb-4">
-      <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-earth-500" />
-      <input
-        v-model="searchQuery"
-        type="search"
-        placeholder="Ausrüstung suchen..."
-        class="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-deep-100 bg-deep-300 text-earth-100 placeholder-earth-500 focus:outline-none focus:border-forest-500 transition-colors"
-      >
+    <!-- Search (sticky) -->
+    <div class="sticky top-0 z-30 bg-deep-200 pb-3 -mx-4 px-4 pt-1">
+      <div class="relative">
+        <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-earth-500" />
+        <input
+          v-model="searchQuery"
+          type="search"
+          placeholder="Ausrüstung suchen..."
+          class="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-deep-100 bg-deep-300 text-earth-100 placeholder-earth-500 focus:outline-none focus:border-forest-500 transition-colors"
+        >
+      </div>
     </div>
 
     <!-- Equipment list -->
@@ -125,64 +145,67 @@ async function deleteEquipment(id: string) {
         v-for="item in filteredEquipment"
         :key="item.id"
       >
-        <div class="flex items-center justify-between gap-4">
-          <!-- Info -->
-          <div class="flex-1 min-w-0">
-            <h3 class="font-medium text-earth-100 truncate">
+        <div class="flex items-center gap-2">
+          <!-- Info (clickable for detail) -->
+          <div
+            class="flex-1 min-w-0 cursor-pointer"
+            @click="openDetail(item)"
+          >
+            <h3 class="font-medium text-earth-100 truncate text-sm">
               {{ item.name }}
               <span v-if="item.specifications" class="text-earth-400 font-normal">
                 ({{ item.specifications }})
               </span>
             </h3>
-            <p class="text-sm text-earth-400 mt-0.5">
+            <p class="text-xs text-earth-400 mt-0.5">
               {{ item.totalRequired > 0 ? `${item.totalRequired} benötigt` : 'Nicht zugewiesen' }}
             </p>
           </div>
 
           <!-- Stock controls -->
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1 flex-shrink-0">
             <button
-              class="w-10 h-10 rounded-xl bg-forest-700 text-white flex items-center justify-center hover:bg-forest-600 active:scale-95 transition-all disabled:bg-forest-900 disabled:text-forest-600 border border-forest-500/40"
+              class="w-10 h-10 rounded-xl bg-forest-700 text-white flex items-center justify-center active:scale-95 transition-all disabled:bg-forest-900 disabled:text-forest-600 border border-forest-500/40"
               :disabled="item.currentStock <= 0"
               @click="adjustStock(item.id, -1)"
             >
               <Minus class="w-5 h-5" />
             </button>
 
-            <div class="w-16 text-center">
-              <span class="text-lg font-semibold text-earth-100 tabular-nums">
+            <div class="w-10 text-center">
+              <span class="text-sm font-semibold text-earth-100 tabular-nums">
                 {{ item.currentStock }}
               </span>
-              <span class="text-xs text-earth-500 block">
+              <span class="text-[10px] text-earth-500 block leading-tight">
                 Stück
               </span>
             </div>
 
             <button
-              class="w-10 h-10 rounded-xl bg-forest-600 text-white flex items-center justify-center hover:bg-forest-500 active:scale-95 transition-all"
+              class="w-10 h-10 rounded-xl bg-forest-600 text-white flex items-center justify-center active:scale-95 transition-all"
               @click="adjustStock(item.id, 1)"
             >
               <Plus class="w-5 h-5" />
             </button>
           </div>
 
-          <!-- Edit button -->
-          <button
-            class="p-2.5 rounded-lg text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
-            @click="startEditEquipment(item)"
-            title="Bearbeiten"
-          >
-            <Edit3 class="w-5 h-5" />
-          </button>
-
-          <!-- Delete button -->
-          <button
-            class="p-2.5 rounded-lg text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
-            @click="showDeleteConfirm = item.id"
-            title="Löschen"
-          >
-            <Trash2 class="w-5 h-5" />
-          </button>
+          <!-- Edit & Delete -->
+          <div class="flex items-center gap-0 flex-shrink-0">
+            <button
+              class="p-1.5 rounded-lg text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
+              @click="startEditEquipment(item)"
+              title="Bearbeiten"
+            >
+              <Edit3 class="w-5 h-5" />
+            </button>
+            <button
+              class="p-1.5 rounded-lg text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
+              @click="showDeleteConfirm = item.id"
+              title="Löschen"
+            >
+              <Trash2 class="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </BaseCard>
     </div>
@@ -209,6 +232,51 @@ async function deleteEquipment(id: string) {
       title="Keine Ergebnisse"
       :description="`Keine Ausrüstung mit '${searchQuery}' gefunden.`"
     />
+
+    <!-- Detail modal -->
+    <BaseModal
+      :open="showDetailModal"
+      :title="detailEquipment?.name || 'Ausrüstung'"
+      centered
+      @close="showDetailModal = false"
+    >
+      <div v-if="detailEquipment" class="space-y-4">
+        <div v-if="detailEquipment.specifications">
+          <p class="text-xs text-earth-500 mb-1">Details</p>
+          <p class="text-earth-200">{{ detailEquipment.specifications }}</p>
+        </div>
+
+        <div class="flex gap-6">
+          <div>
+            <p class="text-xs text-earth-500 mb-1">Bestand</p>
+            <p class="text-earth-200 font-medium">
+              {{ detailEquipment.currentStock }} Stück
+            </p>
+          </div>
+          <div>
+            <p class="text-xs text-earth-500 mb-1">Benötigt</p>
+            <p class="text-earth-200 font-medium">
+              {{ detailEquipment.totalRequired }} Stück
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-xs text-earth-500 mb-2">Zugewiesen an Projekte</p>
+          <div v-if="getAssignedProjects(detailEquipment.id).length > 0" class="space-y-2">
+            <div
+              v-for="(proj, i) in getAssignedProjects(detailEquipment.id)"
+              :key="i"
+              class="flex items-center justify-between bg-deep-100/50 rounded-lg px-3 py-2"
+            >
+              <span class="text-earth-200 text-sm">{{ proj.name }}</span>
+              <span class="text-earth-400 text-sm">{{ proj.amount }} Stück</span>
+            </div>
+          </div>
+          <p v-else class="text-earth-500 text-sm">Keinem Projekt zugewiesen</p>
+        </div>
+      </div>
+    </BaseModal>
 
     <!-- Add equipment modal -->
     <BaseModal

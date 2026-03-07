@@ -6,7 +6,6 @@ import { useProjectStore } from '@entities/project/model/store'
 import { useMaterialStore } from '@entities/material/model/store'
 import { useEquipmentStore } from '@entities/equipment/model/store'
 import { useTaskStore } from '@entities/task/model/store'
-import { PROJECT_CATEGORY_LABELS } from '@entities/project/model/types'
 import { UNIT_GROUPS } from '@entities/material/model/types'
 import { BaseButton, BaseInput, BaseTextarea, BaseModal, BaseSelect, BaseCard, BaseNumberStepper } from '@shared/ui'
 
@@ -74,8 +73,20 @@ const categoryIcons: Record<string, typeof Building2> = {
 }
 
 function getCategoryIcon(key: string) {
+  if (key === 'custom') return FolderPlus
   return categoryIcons[key] || FolderPlus
 }
+
+// Categories: default ones + custom ones from store, always with "Neue Kategorie" at end
+const displayCategories = computed(() => {
+  const defaults: Record<string, string> = {
+    construction: 'Bauprojekte',
+    exploration: 'Erkundung',
+    tools: 'Werkzeuge & Ausrüstung'
+  }
+  const customs = { ...projectStore.customCategories }
+  return { ...defaults, ...customs, custom: 'Neue Kategorie' }
+})
 
 const isValid = computed(() => {
   return name.value.trim().length > 0
@@ -153,8 +164,8 @@ function confirmCustomCategory() {
     const catId = projectStore.addCustomCategory(newCategoryName.value.trim())
     category.value = catId
     customCategoryName.value = newCategoryName.value.trim()
-    showCustomCategoryModal.value = false
     newCategoryName.value = ''
+    showCustomCategoryModal.value = false
   }
 }
 
@@ -575,12 +586,12 @@ function goBack() {
         </label>
         <div class="grid grid-cols-2 gap-3">
           <button
-            v-for="(label, key) in PROJECT_CATEGORY_LABELS"
+            v-for="(label, key) in displayCategories"
             :key="key"
             type="button"
             :class="[
               'flex items-center gap-3 p-4 rounded-xl border-2 transition-all',
-              category === key || (key === 'custom' && customCategoryName)
+              category === key
                 ? 'border-forest-500 bg-forest-900/30'
                 : 'border-deep-100 bg-deep-200 hover:border-deep-50'
             ]"
@@ -588,25 +599,25 @@ function goBack() {
           >
             <div
               :class="[
-                'w-10 h-10 rounded-lg flex items-center justify-center',
-                category === key || (key === 'custom' && customCategoryName) ? 'bg-forest-600' : 'bg-deep-100'
+                'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0',
+                category === key ? 'bg-forest-600' : 'bg-deep-100'
               ]"
             >
               <component
                 :is="getCategoryIcon(key)"
                 :class="[
                   'w-5 h-5',
-                  category === key || (key === 'custom' && customCategoryName) ? 'text-white' : 'text-earth-400'
+                  category === key ? 'text-white' : 'text-earth-400'
                 ]"
               />
             </div>
             <span
               :class="[
                 'text-sm font-medium text-left',
-                category === key || (key === 'custom' && customCategoryName) ? 'text-forest-300' : 'text-earth-300'
+                category === key ? 'text-forest-300' : 'text-earth-300'
               ]"
             >
-              {{ key === 'custom' && customCategoryName ? customCategoryName : label }}
+              {{ label }}
             </span>
           </button>
         </div>

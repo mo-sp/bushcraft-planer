@@ -253,6 +253,40 @@ c54b0fc feat: UI-Verbesserungen ProjectDetail, Inline-Editing & Material/Equipme
 
 ### Commits
 ```
+7955d06 feat: splash screen, first APK build & bug fixes (v0.8.0-beta)
+```
+
+---
+
+## Session 8 (2026-03-07)
+
+### 33. Mobile UI Improvements
+- **Bottom nav overlap fixed**: Increased content padding (`pb-24`) so nav no longer covers page content
+- **Material/Equipment lists compacted**: Reduced gaps between controls, edit/delete buttons grouped tightly together, more room for item names
+- **Detail modal for items**: Tap on material/equipment name opens centered modal with full details (name, specs, stock, required) and list of assigned projects
+- **BaseModal `centered` prop**: New prop for vertically centered modals (vs default bottom-sheet style on mobile)
+
+### 34. Project Status Buttons in One Row
+- Removed double padding (outer button + inner badge)
+- Reduced gap and scale to fit all 3 statuses ("Geplant", "In Bearbeitung", "Abgeschlossen") in one line
+
+### 35. Back Button Fix (ProjectDetail)
+- Removed `safe-top` padding from button (caused oval shape)
+- Now uses `top: calc(1rem + env(safe-area-inset-top))` for proper round shape and alignment
+
+### 36. Custom Categories Improved
+- **ProjectNewPage**: Uses `displayCategories` computed (default + custom from store + "Neue Kategorie" at end)
+- After creating a custom category, it immediately appears in the grid alongside existing categories
+- "Neue Kategorie" button always stays available for creating more
+- **Store `allCategories`**: Now also derives custom categories from existing projects (not just localStorage)
+- Custom categories auto-sync via Supabase: `customCategoryName` already synced on projects, other users see them after sync
+
+### 37. Android Hardware Back Button
+- Installed `@capacitor/app` plugin
+- Back button navigates `router.back()`, minimizes app on dashboard
+
+### Commits
+```
 TBD
 ```
 

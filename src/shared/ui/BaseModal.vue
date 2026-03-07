@@ -6,10 +6,12 @@ interface Props {
   open: boolean
   title?: string
   closable?: boolean
+  centered?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  closable: true
+  closable: true,
+  centered: false
 })
 
 const emit = defineEmits<{
@@ -44,7 +46,10 @@ watch(() => props.open, (isOpen) => {
     >
       <div
         v-if="open"
-        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+        :class="[
+          'fixed inset-0 z-50 flex justify-center p-4',
+          centered ? 'items-center' : 'items-end sm:items-center'
+        ]"
       >
         <!-- Backdrop -->
         <div
@@ -63,7 +68,10 @@ watch(() => props.open, (isOpen) => {
         >
           <div
             v-if="open"
-            class="relative w-full max-w-lg max-h-[85vh] bg-deep-200 rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden flex flex-col safe-bottom border border-deep-50/30"
+            :class="[
+              'relative w-full max-w-lg max-h-[85vh] bg-deep-200 shadow-xl overflow-hidden flex flex-col border border-deep-50/30',
+              centered ? 'rounded-2xl' : 'rounded-t-2xl sm:rounded-2xl safe-bottom'
+            ]"
           >
             <!-- Header -->
             <div

@@ -78,7 +78,7 @@ onMounted(async () => {
 
     <!-- Main content -->
     <template v-else>
-      <main class="flex-1 pb-20">
+      <main class="flex-1 pb-24 overflow-y-auto">
         <RouterView v-slot="{ Component }">
           <Transition
             mode="out-in"

@@ -7,7 +7,7 @@ import type {
   CreateProjectInput,
   UpdateProjectInput
 } from './types'
-import { getRandomPlaceholderColor, PROJECT_CATEGORY_LABELS } from './types'
+import { getRandomPlaceholderColor } from './types'
 
 export const useProjectStore = defineStore('projects', () => {
   // State
@@ -17,8 +17,22 @@ export const useProjectStore = defineStore('projects', () => {
   const error = ref<string | null>(null)
 
   // Getters
+  // All usable categories (without "Neue Kategorie" placeholder)
   const allCategories = computed(() => {
-    return { ...PROJECT_CATEGORY_LABELS, ...customCategories.value }
+    const base: Record<string, string> = {
+      construction: 'Bauprojekte',
+      exploration: 'Erkundung',
+      tools: 'Werkzeuge & Ausrüstung'
+    }
+    // Add custom categories from localStorage
+    const merged = { ...base, ...customCategories.value }
+    // Also derive custom categories from existing projects
+    for (const p of projects.value) {
+      if (p.customCategoryName && p.category && !merged[p.category]) {
+        merged[p.category] = p.customCategoryName
+      }
+    }
+    return merged
   })
 
   const projectsByStatus = computed(() => {

@@ -447,14 +447,15 @@ async function removeSketch() {
 
       <!-- Back button - markanter Pfeil -->
       <button
-        class="absolute top-4 left-4 w-10 h-10 flex items-center justify-center rounded-full bg-deep-200/90 text-earth-100 hover:bg-deep-100 transition-colors safe-top z-10"
+        class="absolute left-4 w-10 h-10 flex items-center justify-center rounded-full bg-deep-200/90 text-earth-100 hover:bg-deep-100 transition-colors z-10"
+        style="top: calc(1rem + env(safe-area-inset-top, 0px))"
         @click.stop="goBack"
       >
         <ChevronLeft class="w-7 h-7" stroke-width="3" />
       </button>
 
       <!-- Top right buttons -->
-      <div class="absolute top-4 right-4 flex gap-2 safe-top z-10">
+      <div class="absolute right-4 flex gap-2 z-10" style="top: calc(1rem + env(safe-area-inset-top, 0px))">
         <button
           class="w-10 h-10 flex items-center justify-center rounded-full bg-deep-200/90 text-earth-300 hover:bg-deep-100 hover:text-earth-100 transition-colors"
           @click.stop="triggerImageUpload"
@@ -533,14 +534,14 @@ async function removeSketch() {
         </p>
 
         <!-- Status selector - aktive Phase deutlich hervorgehoben -->
-        <div class="flex flex-wrap gap-2 mb-4">
+        <div class="flex gap-1.5 mb-4">
           <button
             v-for="(label, status) in PROJECT_STATUS_LABELS"
             :key="status"
             :class="[
-              'px-4 py-2.5 rounded-full text-sm font-semibold transition-all border-2',
+              'rounded-full transition-all border-2',
               project.status === status
-                ? 'scale-110 shadow-lg border-forest-400'
+                ? 'scale-105 shadow-lg border-forest-400'
                 : 'opacity-50 hover:opacity-80 border-transparent'
             ]"
             @click="setStatus(status as ProjectStatus)"

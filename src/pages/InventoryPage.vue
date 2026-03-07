@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { Plus, Minus, Trash2, Warehouse, Search, Edit3 } from 'lucide-vue-next'
 import { useMaterialStore } from '@entities/material/model/store'
+import { useProjectStore } from '@entities/project/model/store'
 import { UNIT_GROUPS } from '@entities/material/model/types'
 import type { Material } from '@entities/material/model/types'
 import {
@@ -9,11 +10,14 @@ import {
 } from '@shared/ui'
 
 const materialStore = useMaterialStore()
+const projectStore = useProjectStore()
 
 const searchQuery = ref('')
 const showAddMaterial = ref(false)
 const showEditMaterial = ref(false)
 const showDeleteConfirm = ref<string | null>(null)
+const showDetailModal = ref(false)
+const detailMaterial = ref<(Material & { totalRequired: number }) | null>(null)
 
 // New material form
 const newMaterial = ref({
@@ -47,6 +51,20 @@ const unitGroups = computed(() =>
     options: group.units.map(unit => ({ value: unit, label: unit }))
   }))
 )
+
+// Get projects assigned to a material
+function getAssignedProjects(materialId: string) {
+  const reqs = materialStore.requirementsByMaterial(materialId)
+  return reqs.map(r => {
+    const project = projectStore.projectById(r.projectId)
+    return project ? { name: project.name, amount: r.requiredAmount } : null
+  }).filter(Boolean) as { name: string; amount: number }[]
+}
+
+function openDetail(material: Material & { totalRequired: number }) {
+  detailMaterial.value = material
+  showDetailModal.value = true
+}
 
 function resetForm() {
   newMaterial.value = {
@@ -121,15 +139,17 @@ async function deleteMaterial(id: string) {
       </BaseButton>
     </header>
 
-    <!-- Search -->
-    <div class="relative mb-4">
-      <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-earth-500" />
-      <input
-        v-model="searchQuery"
-        type="search"
-        placeholder="Material suchen..."
-        class="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-deep-100 bg-deep-300 text-earth-100 placeholder-earth-500 focus:outline-none focus:border-forest-500 transition-colors"
-      >
+    <!-- Search (sticky) -->
+    <div class="sticky top-0 z-30 bg-deep-200 pb-3 -mx-4 px-4 pt-1">
+      <div class="relative">
+        <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-earth-500" />
+        <input
+          v-model="searchQuery"
+          type="search"
+          placeholder="Material suchen..."
+          class="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-deep-100 bg-deep-300 text-earth-100 placeholder-earth-500 focus:outline-none focus:border-forest-500 transition-colors"
+        >
+      </div>
     </div>
 
     <!-- Material list -->
@@ -138,64 +158,67 @@ async function deleteMaterial(id: string) {
         v-for="material in filteredMaterials"
         :key="material.id"
       >
-        <div class="flex items-center justify-between gap-4">
-          <!-- Info -->
-          <div class="flex-1 min-w-0">
-            <h3 class="font-medium text-earth-100 truncate">
+        <div class="flex items-center gap-2">
+          <!-- Info (clickable for detail) -->
+          <div
+            class="flex-1 min-w-0 cursor-pointer"
+            @click="openDetail(material)"
+          >
+            <h3 class="font-medium text-earth-100 truncate text-sm">
               {{ material.name }}
               <span v-if="material.specifications" class="text-earth-400 font-normal">
                 ({{ material.specifications }})
               </span>
             </h3>
-            <p class="text-sm text-earth-400 mt-0.5">
+            <p class="text-xs text-earth-400 mt-0.5">
               {{ material.totalRequired > 0 ? `${material.totalRequired} benötigt` : 'Nicht zugewiesen' }}
             </p>
           </div>
 
           <!-- Stock controls -->
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1 flex-shrink-0">
             <button
-              class="w-10 h-10 rounded-xl bg-forest-700 text-white flex items-center justify-center hover:bg-forest-600 active:scale-95 transition-all disabled:bg-forest-900 disabled:text-forest-600 border border-forest-500/40"
+              class="w-10 h-10 rounded-xl bg-forest-700 text-white flex items-center justify-center active:scale-95 transition-all disabled:bg-forest-900 disabled:text-forest-600 border border-forest-500/40"
               :disabled="material.currentStock <= 0"
               @click="adjustStock(material.id, -1)"
             >
               <Minus class="w-5 h-5" />
             </button>
 
-            <div class="w-16 text-center">
-              <span class="text-lg font-semibold text-earth-100 tabular-nums">
+            <div class="w-10 text-center">
+              <span class="text-sm font-semibold text-earth-100 tabular-nums">
                 {{ material.currentStock }}
               </span>
-              <span v-if="material.unit" class="text-xs text-earth-500 block">
+              <span v-if="material.unit" class="text-[10px] text-earth-500 block leading-tight">
                 {{ material.unit }}
               </span>
             </div>
 
             <button
-              class="w-10 h-10 rounded-xl bg-forest-600 text-white flex items-center justify-center hover:bg-forest-500 active:scale-95 transition-all"
+              class="w-10 h-10 rounded-xl bg-forest-600 text-white flex items-center justify-center active:scale-95 transition-all"
               @click="adjustStock(material.id, 1)"
             >
               <Plus class="w-5 h-5" />
             </button>
           </div>
 
-          <!-- Edit button -->
-          <button
-            class="p-2.5 rounded-lg text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
-            @click="startEditMaterial(material)"
-            title="Bearbeiten"
-          >
-            <Edit3 class="w-5 h-5" />
-          </button>
-
-          <!-- Delete button -->
-          <button
-            class="p-2.5 rounded-lg text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
-            @click="showDeleteConfirm = material.id"
-            title="Löschen"
-          >
-            <Trash2 class="w-5 h-5" />
-          </button>
+          <!-- Edit & Delete -->
+          <div class="flex items-center gap-0 flex-shrink-0">
+            <button
+              class="p-1.5 rounded-lg text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
+              @click="startEditMaterial(material)"
+              title="Bearbeiten"
+            >
+              <Edit3 class="w-5 h-5" />
+            </button>
+            <button
+              class="p-1.5 rounded-lg text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
+              @click="showDeleteConfirm = material.id"
+              title="Löschen"
+            >
+              <Trash2 class="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </BaseCard>
     </div>
@@ -222,6 +245,51 @@ async function deleteMaterial(id: string) {
       title="Keine Ergebnisse"
       :description="`Kein Material mit '${searchQuery}' gefunden.`"
     />
+
+    <!-- Detail modal -->
+    <BaseModal
+      :open="showDetailModal"
+      :title="detailMaterial?.name || 'Material'"
+      centered
+      @close="showDetailModal = false"
+    >
+      <div v-if="detailMaterial" class="space-y-4">
+        <div v-if="detailMaterial.specifications">
+          <p class="text-xs text-earth-500 mb-1">Details</p>
+          <p class="text-earth-200">{{ detailMaterial.specifications }}</p>
+        </div>
+
+        <div class="flex gap-6">
+          <div>
+            <p class="text-xs text-earth-500 mb-1">Bestand</p>
+            <p class="text-earth-200 font-medium">
+              {{ detailMaterial.currentStock }} {{ detailMaterial.unit || 'Stück' }}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs text-earth-500 mb-1">Benötigt</p>
+            <p class="text-earth-200 font-medium">
+              {{ detailMaterial.totalRequired }} {{ detailMaterial.unit || 'Stück' }}
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-xs text-earth-500 mb-2">Zugewiesen an Projekte</p>
+          <div v-if="getAssignedProjects(detailMaterial.id).length > 0" class="space-y-2">
+            <div
+              v-for="(proj, i) in getAssignedProjects(detailMaterial.id)"
+              :key="i"
+              class="flex items-center justify-between bg-deep-100/50 rounded-lg px-3 py-2"
+            >
+              <span class="text-earth-200 text-sm">{{ proj.name }}</span>
+              <span class="text-earth-400 text-sm">{{ proj.amount }} {{ detailMaterial.unit || 'Stück' }}</span>
+            </div>
+          </div>
+          <p v-else class="text-earth-500 text-sm">Keinem Projekt zugewiesen</p>
+        </div>
+      </div>
+    </BaseModal>
 
     <!-- Add material modal -->
     <BaseModal
