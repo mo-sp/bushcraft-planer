@@ -285,9 +285,14 @@ c54b0fc feat: UI-Verbesserungen ProjectDetail, Inline-Editing & Material/Equipme
 - Installed `@capacitor/app` plugin
 - Back button navigates `router.back()`, minimizes app on dashboard
 
+### 38. Custom Category Sync Persistence
+- After Supabase sync, custom categories from received projects are saved to localStorage
+- Categories persist permanently even if project is later deleted
+
 ### Commits
 ```
-TBD
+12c91a6 feat: mobile UI improvements, item detail view, back button & category sync
+cc01e56 feat: persist custom categories from synced projects to localStorage
 ```
 
 ---
@@ -297,6 +302,7 @@ TBD
 ### Fehlende Features
 1. **Drag & Drop** fuer Aufgaben-Reihenfolge
 2. **Auto-Sync** beim App-Start (aktuell nur manuell)
+3. **Sticky Search** in Material/Ausruestung (Suche scrollt noch nicht mit)
 
 ### Polish
 1. Animationen verbessern
