@@ -46,16 +46,19 @@ export interface UpdateMaterialRequirementInput {
   requiredAmount?: number
 }
 
-export const COMMON_UNITS: string[] = [
-  'Stück',
-  'Meter',
-  'kg',
-  'Gramm',
-  'Liter',
-  'cm',
-  'Bündel',
-  'Packung'
+export interface UnitGroup {
+  label: string
+  units: string[]
+}
+
+export const UNIT_GROUPS: UnitGroup[] = [
+  { label: 'Menge', units: ['Stück', 'Paar', 'Bündel', 'Packung'] },
+  { label: 'Länge', units: ['mm', 'cm', 'Meter'] },
+  { label: 'Gewicht', units: ['Gramm', 'kg'] },
+  { label: 'Volumen', units: ['ml', 'Liter'] },
 ]
+
+export const COMMON_UNITS: string[] = UNIT_GROUPS.flatMap(g => g.units)
 
 export const MATERIAL_ICONS: string[] = [
   'log',

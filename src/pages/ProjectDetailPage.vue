@@ -3,29 +3,34 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ChevronLeft, Plus, Trash2, CheckCircle2, Edit3, Save, X,
-  Building2, Compass, Hammer, FolderPlus, Package, Clock, Users, StickyNote, Image
+  Building2, Compass, Hammer, FolderPlus, Package, Backpack, Clock, Users, StickyNote, Image, PenLine, Upload, Search
 } from 'lucide-vue-next'
 import { useProjectStore } from '@entities/project/model/store'
 import { useTaskStore } from '@entities/task/model/store'
 import { useMaterialStore } from '@entities/material/model/store'
+import { useEquipmentStore } from '@entities/equipment/model/store'
+import { UNIT_GROUPS } from '@entities/material/model/types'
 import type { ProjectStatus } from '@entities/project/model/types'
 import { PROJECT_STATUS_LABELS } from '@entities/project/model/types'
 import type { Task } from '@entities/task/model/types'
 import {
   BaseButton, BaseCard, BaseBadge, BaseProgress, BaseModal,
-  BaseInput, BaseTextarea, BaseCheckbox, BaseEmptyState, BaseSelect
+  BaseInput, BaseTextarea, BaseCheckbox, BaseEmptyState, BaseSelect, BaseNumberStepper
 } from '@shared/ui'
+import { compressImage } from '@shared/lib/imageUtils'
 
 const route = useRoute()
 const router = useRouter()
 const projectStore = useProjectStore()
 const taskStore = useTaskStore()
 const materialStore = useMaterialStore()
+const equipmentStore = useEquipmentStore()
 
 const projectId = computed(() => route.params.id as string)
 const project = computed(() => projectStore.projectById(projectId.value))
 const tasks = computed(() => taskStore.tasksByProject(projectId.value))
-const requirements = computed(() => materialStore.requirementsByProject(projectId.value))
+const materialReqs = computed(() => materialStore.requirementsByProject(projectId.value))
+const equipmentReqs = computed(() => equipmentStore.requirementsByProject(projectId.value))
 
 // Inline editing states
 const editingField = ref<string | null>(null)
@@ -37,8 +42,9 @@ const editNotes = ref('')
 const showAddTask = ref(false)
 const showEditTask = ref(false)
 const showDeleteConfirm = ref(false)
-const showAddMaterial = ref(false)
-const showEditMaterial = ref(false)
+const showAddItem = ref(false)
+const showNewItemModal = ref(false)
+const showEditReq = ref(false)
 const isDeleting = ref(false)
 
 // New task form
@@ -54,16 +60,55 @@ const editTaskDescription = ref('')
 const editTaskDuration = ref<number | ''>('')
 const editTaskManpower = ref(1)
 
-// New material requirement
-const selectedMaterialId = ref('')
-const requiredAmount = ref(1)
+// Item selection (materials + equipment)
+type ItemType = 'material' | 'equipment'
+const itemSearchQuery = ref('')
+const selectedItemId = ref<string | null>(null)
+const selectedItemType = ref<ItemType | null>(null)
+const itemAmount = ref(1)
 
-// Edit material requirement
+// New item form
+const newItem = ref({ type: 'material' as ItemType, name: '', specifications: '', unit: '' })
+
+// Edit requirement
 const editingReqId = ref('')
+const editingReqType = ref<ItemType>('material')
 const editReqAmount = ref(1)
+
+// Combined items from both stores
+const allItems = computed(() => {
+  const materials = materialStore.materials.map(m => ({
+    type: 'material' as ItemType, id: m.id, name: m.name,
+    specifications: m.specifications, currentStock: m.currentStock, unit: m.unit
+  }))
+  const equipment = equipmentStore.equipment.map(e => ({
+    type: 'equipment' as ItemType, id: e.id, name: e.name,
+    specifications: e.specifications, currentStock: e.currentStock, unit: undefined
+  }))
+  return [...materials, ...equipment]
+})
+
+const filteredItems = computed(() => {
+  const query = itemSearchQuery.value.toLowerCase().trim()
+  if (!query) return allItems.value
+  return allItems.value.filter(item =>
+    item.name.toLowerCase().includes(query) ||
+    (item.specifications && item.specifications.toLowerCase().includes(query))
+  )
+})
+
+const unitGroups = computed(() =>
+  UNIT_GROUPS.map(group => ({
+    label: group.label,
+    options: group.units.map(unit => ({ value: unit, label: unit }))
+  }))
+)
 
 // Image upload
 const imageInput = ref<HTMLInputElement | null>(null)
+const sketchInput = ref<HTMLInputElement | null>(null)
+const showSketchModal = ref(false)
+const showImageModal = ref(false)
 
 const categoryIcons: Record<string, typeof Building2> = {
   construction: Building2,
@@ -76,12 +121,13 @@ function getCategoryIcon(category: string) {
   return categoryIcons[category] || FolderPlus
 }
 
-const availableMaterials = computed(() => {
-  return materialStore.materials.map(m => ({
-    value: m.id,
-    label: `${m.name} (${m.currentStock} verfügbar)`
-  }))
-})
+function getItemIcon(type: ItemType) {
+  return type === 'material' ? Package : Backpack
+}
+
+function getItemDisplayName(item: { name: string; specifications?: string }) {
+  return item.specifications ? `${item.name} (${item.specifications})` : item.name
+}
 
 onMounted(async () => {
   await taskStore.loadTasks(projectId.value)
@@ -174,41 +220,120 @@ async function deleteTask(taskId: string) {
   await taskStore.deleteTask(taskId)
 }
 
-async function addMaterialRequirement() {
-  if (!selectedMaterialId.value || requiredAmount.value <= 0) return
+// Item selection functions
+function openAddItem() {
+  itemSearchQuery.value = ''
+  selectedItemId.value = null
+  selectedItemType.value = null
+  itemAmount.value = 1
+  showAddItem.value = true
+}
 
-  const material = materialStore.materialById(selectedMaterialId.value)
-  if (!material || material.currentStock < requiredAmount.value) {
-    return
+function selectItem(type: ItemType, id: string) {
+  selectedItemType.value = type
+  selectedItemId.value = id
+}
+
+async function confirmAddItem() {
+  if (!selectedItemId.value || !selectedItemType.value || itemAmount.value <= 0) return
+
+  if (selectedItemType.value === 'material') {
+    // Check if already assigned
+    const existing = materialReqs.value.find(r => r.materialId === selectedItemId.value)
+    if (existing) {
+      await materialStore.updateRequirement(existing.id, {
+        requiredAmount: existing.requiredAmount + itemAmount.value
+      })
+    } else {
+      await materialStore.createRequirement({
+        projectId: projectId.value,
+        materialId: selectedItemId.value,
+        requiredAmount: itemAmount.value
+      })
+    }
+  } else {
+    const existing = equipmentReqs.value.find(r => r.equipmentId === selectedItemId.value)
+    if (existing) {
+      await equipmentStore.updateRequirement(existing.id, {
+        requiredAmount: existing.requiredAmount + itemAmount.value
+      })
+    } else {
+      await equipmentStore.createRequirement({
+        projectId: projectId.value,
+        equipmentId: selectedItemId.value,
+        requiredAmount: itemAmount.value
+      })
+    }
   }
 
-  await materialStore.createRequirement({
-    projectId: projectId.value,
-    materialId: selectedMaterialId.value,
-    requiredAmount: requiredAmount.value
-  })
-
-  selectedMaterialId.value = ''
-  requiredAmount.value = 1
-  showAddMaterial.value = false
+  showAddItem.value = false
 }
 
-function startEditMaterial(reqId: string, amount: number) {
+function openNewItemModal() {
+  newItem.value = { type: 'material', name: '', specifications: '', unit: '' }
+  showNewItemModal.value = true
+}
+
+async function createNewItem() {
+  if (!newItem.value.name.trim()) return
+
+  if (newItem.value.type === 'material') {
+    const material = await materialStore.createMaterial({
+      name: newItem.value.name.trim(),
+      specifications: newItem.value.specifications.trim() || undefined,
+      unit: newItem.value.unit || undefined,
+      currentStock: 0
+    })
+    if (material) {
+      showNewItemModal.value = false
+      selectedItemType.value = 'material'
+      selectedItemId.value = material.id
+    }
+  } else {
+    const equipment = await equipmentStore.createEquipment({
+      name: newItem.value.name.trim(),
+      specifications: newItem.value.specifications.trim() || undefined,
+      currentStock: 0
+    })
+    if (equipment) {
+      showNewItemModal.value = false
+      selectedItemType.value = 'equipment'
+      selectedItemId.value = equipment.id
+    }
+  }
+}
+
+function startEditReq(reqId: string, type: ItemType, amount: number) {
   editingReqId.value = reqId
+  editingReqType.value = type
   editReqAmount.value = amount
-  showEditMaterial.value = true
+  showEditReq.value = true
 }
 
-async function saveEditMaterial() {
+async function saveEditReq() {
   if (editReqAmount.value <= 0) return
-  await materialStore.updateRequirement(editingReqId.value, {
-    requiredAmount: editReqAmount.value
-  })
-  showEditMaterial.value = false
+  if (editingReqType.value === 'material') {
+    await materialStore.updateRequirement(editingReqId.value, { requiredAmount: editReqAmount.value })
+  } else {
+    await equipmentStore.updateRequirement(editingReqId.value, { requiredAmount: editReqAmount.value })
+  }
+  showEditReq.value = false
 }
 
-async function deleteRequirement(reqId: string) {
-  await materialStore.deleteRequirement(reqId)
+async function deleteReq(reqId: string, type: ItemType) {
+  if (type === 'material') {
+    await materialStore.deleteRequirement(reqId)
+  } else {
+    await equipmentStore.deleteRequirement(reqId)
+  }
+}
+
+function getEquipmentName(id: string): string {
+  return equipmentStore.equipmentById(id)?.name ?? 'Unbekannt'
+}
+
+function getEquipmentStock(id: string): number {
+  return equipmentStore.equipmentById(id)?.currentStock ?? 0
 }
 
 async function deleteProject() {
@@ -274,51 +399,84 @@ async function handleImageUpload(event: Event) {
   const file = input.files?.[0]
   if (!file) return
 
-  // Convert to base64 for local storage
-  const reader = new FileReader()
-  reader.onload = async (e) => {
-    const base64 = e.target?.result as string
-    await projectStore.updateProject(projectId.value, { imageUrl: base64 })
-  }
-  reader.readAsDataURL(file)
+  const compressed = await compressImage(file)
+  await projectStore.updateProject(projectId.value, { imageUrl: compressed })
   input.value = ''
 }
 
 async function removeImage() {
   await projectStore.updateProject(projectId.value, { imageUrl: undefined })
 }
+
+// Sketch handling
+function triggerSketchUpload() {
+  sketchInput.value?.click()
+}
+
+async function handleSketchUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  const compressed = await compressImage(file)
+  await projectStore.updateProject(projectId.value, { sketchUrl: compressed })
+  input.value = ''
+}
+
+async function removeSketch() {
+  await projectStore.updateProject(projectId.value, { sketchUrl: undefined })
+}
 </script>
 
 <template>
-  <div v-if="project" class="pb-6">
-    <!-- Header image -->
+  <div v-if="project" class="pb-6 relative">
+    <!-- Subtle background image -->
     <div
-      class="h-44 relative flex items-center justify-center bg-deep-100"
-      :style="project.imageUrl ? { backgroundImage: `url(${project.imageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}"
+      v-if="project.imageUrl"
+      class="fixed inset-0 z-0 pointer-events-none"
+      :style="{
+        backgroundImage: `url(${project.imageUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        opacity: 0.04
+      }"
+    />
+
+    <!-- Header area -->
+    <div
+      class="h-44 relative flex items-center justify-center"
+      :class="project.imageUrl ? 'cursor-pointer' : 'bg-deep-100'"
+      @click="project.imageUrl ? showImageModal = true : null"
     >
-      <!-- Overlay for better button visibility when image is present -->
-      <div v-if="project.imageUrl" class="absolute inset-0 bg-black/30" />
 
       <!-- Back button - markanter Pfeil -->
       <button
-        class="absolute top-4 left-4 w-10 h-10 flex items-center justify-center rounded-full bg-deep-200/90 text-earth-100 hover:bg-deep-100 transition-colors safe-top"
-        @click="goBack"
+        class="absolute top-4 left-4 w-10 h-10 flex items-center justify-center rounded-full bg-deep-200/90 text-earth-100 hover:bg-deep-100 transition-colors safe-top z-10"
+        @click.stop="goBack"
       >
         <ChevronLeft class="w-7 h-7" stroke-width="3" />
       </button>
 
-      <!-- Top right buttons: Delete + Image -->
+      <!-- Top right buttons -->
       <div class="absolute top-4 right-4 flex gap-2 safe-top z-10">
         <button
           class="w-10 h-10 flex items-center justify-center rounded-full bg-deep-200/90 text-earth-300 hover:bg-deep-100 hover:text-earth-100 transition-colors"
-          @click="triggerImageUpload"
+          @click.stop="triggerImageUpload"
           title="Bild hochladen"
         >
           <Image class="w-5 h-5" />
         </button>
         <button
+          v-if="project.imageUrl"
+          class="w-10 h-10 flex items-center justify-center rounded-full bg-deep-200/90 text-earth-300 hover:bg-deep-100 hover:text-red-300 transition-colors"
+          @click.stop="removeImage"
+          title="Bild entfernen"
+        >
+          <X class="w-5 h-5" />
+        </button>
+        <button
           class="w-10 h-10 flex items-center justify-center rounded-full bg-red-900/70 text-red-300 hover:bg-red-800 hover:text-red-200 transition-colors"
-          @click="showDeleteConfirm = true"
+          @click.stop="showDeleteConfirm = true"
           title="Projekt löschen"
         >
           <Trash2 class="w-5 h-5" />
@@ -331,6 +489,7 @@ async function removeImage() {
         type="file"
         accept="image/*"
         class="hidden"
+        @click.stop
         @change="handleImageUpload"
       />
 
@@ -341,14 +500,6 @@ async function removeImage() {
         class="w-16 h-16 text-earth-500/60"
       />
 
-      <!-- Remove image button (when image present) -->
-      <button
-        v-if="project.imageUrl"
-        class="absolute bottom-3 right-3 px-2 py-1 text-xs rounded bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
-        @click="removeImage"
-      >
-        Bild entfernen
-      </button>
     </div>
 
     <!-- Content -->
@@ -484,6 +635,55 @@ async function removeImage() {
         </div>
       </BaseCard>
 
+      <!-- Sketch section -->
+      <BaseCard class="mb-4">
+        <div class="flex items-center gap-2 mb-3">
+          <PenLine class="w-5 h-5 text-forest-400" />
+          <h2 class="text-lg font-semibold text-earth-100">Skizze</h2>
+        </div>
+
+        <input
+          ref="sketchInput"
+          type="file"
+          accept="image/*"
+          class="hidden"
+          @change="handleSketchUpload"
+        />
+
+        <div v-if="project.sketchUrl" class="flex items-center gap-3">
+          <button
+            class="flex-1 flex items-center gap-3 p-3 rounded-xl bg-deep-200 hover:bg-deep-100 transition-colors text-left"
+            @click="showSketchModal = true"
+          >
+            <PenLine class="w-5 h-5 text-forest-400 flex-shrink-0" />
+            <span class="text-earth-200">Skizze anzeigen</span>
+          </button>
+          <button
+            class="p-2.5 rounded-lg text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
+            @click="triggerSketchUpload"
+            title="Neue Skizze"
+          >
+            <Upload class="w-4 h-4" />
+          </button>
+          <button
+            class="p-2.5 rounded-lg text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
+            @click="removeSketch"
+            title="Skizze entfernen"
+          >
+            <Trash2 class="w-4 h-4" />
+          </button>
+        </div>
+
+        <button
+          v-else
+          class="w-full flex items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed border-deep-100 text-earth-400 hover:border-forest-500 hover:text-forest-400 transition-colors"
+          @click="triggerSketchUpload"
+        >
+          <Upload class="w-5 h-5" />
+          <span>Skizze hochladen</span>
+        </button>
+      </BaseCard>
+
       <!-- Tasks section -->
       <div class="mb-4">
         <div class="flex items-center justify-between mb-3">
@@ -555,24 +755,28 @@ async function removeImage() {
         />
       </div>
 
-      <!-- Materials section -->
+      <!-- Materials & Equipment section -->
       <div class="mb-4">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-lg font-semibold text-earth-100">Materialien</h2>
-          <BaseButton size="sm" @click="showAddMaterial = true">
+          <h2 class="text-lg font-semibold text-earth-100">Material & Ausrüstung</h2>
+          <BaseButton size="sm" @click="openAddItem">
             <Plus class="w-4 h-4" />
-            Zuweisen
+            Hinzufügen
           </BaseButton>
         </div>
 
-        <BaseCard v-if="requirements.length > 0" padding="none">
+        <BaseCard v-if="materialReqs.length > 0 || equipmentReqs.length > 0" padding="none">
           <div class="divide-y divide-deep-100">
+            <!-- Material requirements -->
             <div
-              v-for="req in requirements"
+              v-for="req in materialReqs"
               :key="req.id"
               class="flex items-center justify-between px-4 py-3"
             >
-              <span class="text-earth-200">{{ getMaterialName(req.materialId) }}</span>
+              <div class="flex items-center gap-2 flex-1 min-w-0">
+                <Package class="w-4 h-4 text-forest-400 flex-shrink-0" />
+                <span class="text-earth-200 truncate">{{ getMaterialName(req.materialId) }}</span>
+              </div>
               <div class="flex items-center gap-2">
                 <span
                   :class="[
@@ -589,17 +793,52 @@ async function removeImage() {
                 </span>
                 <button
                   class="p-2 rounded text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
-                  @click="startEditMaterial(req.id, req.requiredAmount)"
-                  title="Menge anpassen"
+                  @click="startEditReq(req.id, 'material', req.requiredAmount)"
                 >
-                  <Edit3 class="w-5 h-5" />
+                  <Edit3 class="w-4 h-4" />
                 </button>
                 <button
                   class="p-2 rounded text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
-                  @click="deleteRequirement(req.id)"
-                  title="Entfernen"
+                  @click="deleteReq(req.id, 'material')"
                 >
-                  <Trash2 class="w-5 h-5" />
+                  <Trash2 class="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <!-- Equipment requirements -->
+            <div
+              v-for="req in equipmentReqs"
+              :key="req.id"
+              class="flex items-center justify-between px-4 py-3"
+            >
+              <div class="flex items-center gap-2 flex-1 min-w-0">
+                <Backpack class="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <span class="text-earth-200 truncate">{{ getEquipmentName(req.equipmentId) }}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span
+                  :class="[
+                    'font-medium tabular-nums',
+                    getEquipmentStock(req.equipmentId) >= req.requiredAmount
+                      ? 'text-green-400'
+                      : 'text-amber-400'
+                  ]"
+                >
+                  {{ getEquipmentStock(req.equipmentId) }}/{{ req.requiredAmount }}
+                </span>
+                <span class="text-earth-500 text-sm">Stück</span>
+                <button
+                  class="p-2 rounded text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
+                  @click="startEditReq(req.id, 'equipment', req.requiredAmount)"
+                >
+                  <Edit3 class="w-4 h-4" />
+                </button>
+                <button
+                  class="p-2 rounded text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
+                  @click="deleteReq(req.id, 'equipment')"
+                >
+                  <Trash2 class="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -610,7 +849,7 @@ async function removeImage() {
           v-else
           :icon="Package"
           title="Keine Materialien"
-          description="Weise Materialien aus dem Lager zu."
+          description="Füge Material oder Ausrüstung hinzu."
         />
       </div>
     </div>
@@ -721,74 +960,189 @@ async function removeImage() {
       </template>
     </BaseModal>
 
-    <!-- Add material modal -->
+    <!-- Add item modal -->
     <BaseModal
-      :open="showAddMaterial"
-      title="Material zuweisen"
-      @close="showAddMaterial = false"
+      :open="showAddItem"
+      title="Material / Ausrüstung hinzufügen"
+      @close="showAddItem = false"
     >
-      <div class="space-y-4">
-        <BaseSelect
-          v-model="selectedMaterialId"
-          :options="availableMaterials"
-          label="Material"
-          placeholder="Material auswählen..."
-        />
-        <BaseInput
-          v-model.number="requiredAmount"
-          type="number"
-          label="Benötigte Menge"
-          placeholder="1"
-        />
+      <!-- Search -->
+      <div class="relative mb-4">
+        <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-earth-500" />
+        <input
+          v-model="itemSearchQuery"
+          type="search"
+          placeholder="Suchen..."
+          class="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-deep-100 bg-deep-300 text-earth-100 placeholder-earth-500 focus:outline-none focus:border-forest-500 transition-colors"
+        >
       </div>
+
+      <!-- Item list -->
+      <div class="max-h-60 overflow-y-auto space-y-2 mb-4">
+        <button
+          v-for="item in filteredItems"
+          :key="`${item.type}-${item.id}`"
+          type="button"
+          :class="[
+            'w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left',
+            selectedItemId === item.id && selectedItemType === item.type
+              ? 'border-forest-500 bg-forest-900/30'
+              : 'border-deep-100 bg-deep-200 hover:border-deep-50'
+          ]"
+          @click="selectItem(item.type, item.id)"
+        >
+          <div
+            :class="[
+              'w-10 h-10 rounded-lg flex items-center justify-center',
+              selectedItemId === item.id && selectedItemType === item.type
+                ? 'bg-forest-600'
+                : item.type === 'material' ? 'bg-forest-900/30' : 'bg-amber-900/30'
+            ]"
+          >
+            <component
+              :is="getItemIcon(item.type)"
+              :class="[
+                'w-5 h-5',
+                selectedItemId === item.id && selectedItemType === item.type
+                  ? 'text-white'
+                  : item.type === 'material' ? 'text-forest-400' : 'text-amber-400'
+              ]"
+            />
+          </div>
+          <div class="flex-1 min-w-0">
+            <p
+              :class="[
+                'font-medium truncate',
+                selectedItemId === item.id && selectedItemType === item.type ? 'text-forest-300' : 'text-earth-200'
+              ]"
+            >
+              {{ getItemDisplayName(item) }}
+            </p>
+            <p class="text-sm text-earth-500">
+              {{ item.currentStock }} {{ item.unit || 'Stück' }} auf Lager
+              <span class="text-earth-600">·</span>
+              {{ item.type === 'material' ? 'Material' : 'Ausrüstung' }}
+            </p>
+          </div>
+        </button>
+
+        <div v-if="filteredItems.length === 0" class="text-center py-6 text-earth-500">
+          <Package class="w-12 h-12 mx-auto mb-2 opacity-50" />
+          <p>Nichts gefunden</p>
+        </div>
+      </div>
+
+      <!-- New item button -->
+      <button
+        type="button"
+        class="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-deep-100 text-earth-400 hover:border-forest-500 hover:text-forest-400 transition-colors mb-4"
+        @click="openNewItemModal"
+      >
+        <Plus class="w-5 h-5" />
+        <span>Neues Material / Ausrüstung anlegen</span>
+      </button>
+
+      <!-- Amount -->
+      <div v-if="selectedItemId" class="mb-4">
+        <BaseNumberStepper v-model="itemAmount" :min="1" label="Menge" />
+      </div>
+
       <template #footer>
         <div class="flex gap-3">
-          <BaseButton
-            variant="secondary"
-            full-width
-            @click="showAddMaterial = false"
-          >
+          <BaseButton variant="secondary" full-width @click="showAddItem = false">
             Abbrechen
           </BaseButton>
-          <BaseButton
-            full-width
-            :disabled="!selectedMaterialId || requiredAmount <= 0"
-            @click="addMaterialRequirement"
-          >
-            Zuweisen
+          <BaseButton full-width :disabled="!selectedItemId" @click="confirmAddItem">
+            Hinzufügen
           </BaseButton>
         </div>
       </template>
     </BaseModal>
 
-    <!-- Edit material requirement modal -->
+    <!-- New item modal -->
     <BaseModal
-      :open="showEditMaterial"
-      title="Menge anpassen"
-      @close="showEditMaterial = false"
+      :open="showNewItemModal"
+      title="Neu anlegen"
+      @close="showNewItemModal = false"
     >
-      <div class="space-y-4">
+      <form @submit.prevent="createNewItem" class="space-y-4">
+        <div>
+          <label class="text-sm font-medium text-earth-200 mb-2 block">Typ</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              :class="[
+                'flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all',
+                newItem.type === 'material'
+                  ? 'border-forest-500 bg-forest-900/30 text-forest-300'
+                  : 'border-deep-100 bg-deep-200 text-earth-400 hover:border-deep-50'
+              ]"
+              @click="newItem.type = 'material'"
+            >
+              <Package class="w-5 h-5" />
+              <span>Material</span>
+            </button>
+            <button
+              type="button"
+              :class="[
+                'flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all',
+                newItem.type === 'equipment'
+                  ? 'border-amber-500 bg-amber-900/30 text-amber-300'
+                  : 'border-deep-100 bg-deep-200 text-earth-400 hover:border-deep-50'
+              ]"
+              @click="newItem.type = 'equipment'"
+            >
+              <Backpack class="w-5 h-5" />
+              <span>Ausrüstung</span>
+            </button>
+          </div>
+        </div>
+
         <BaseInput
-          v-model.number="editReqAmount"
-          type="number"
-          label="Benötigte Menge"
-          placeholder="1"
+          v-model="newItem.name"
+          label="Name"
+          :placeholder="newItem.type === 'material' ? 'z.B. Stock, Stein, Seil' : 'z.B. Rucksack, Zelt, Messer'"
+          required
         />
-      </div>
+        <BaseInput
+          v-model="newItem.specifications"
+          label="Maße / Details (optional)"
+          :placeholder="newItem.type === 'material' ? 'z.B. 2 Meter gerade' : 'z.B. 30L wasserdicht'"
+        />
+        <BaseSelect
+          v-if="newItem.type === 'material'"
+          v-model="newItem.unit"
+          label="Einheit (optional)"
+          :groups="unitGroups"
+          empty-label="Keine Einheit"
+        />
+      </form>
+
       <template #footer>
         <div class="flex gap-3">
-          <BaseButton
-            variant="secondary"
-            full-width
-            @click="showEditMaterial = false"
-          >
+          <BaseButton variant="secondary" full-width @click="showNewItemModal = false">
             Abbrechen
           </BaseButton>
-          <BaseButton
-            full-width
-            :disabled="editReqAmount <= 0"
-            @click="saveEditMaterial"
-          >
+          <BaseButton full-width :disabled="!newItem.name.trim()" @click="createNewItem">
+            Anlegen
+          </BaseButton>
+        </div>
+      </template>
+    </BaseModal>
+
+    <!-- Edit requirement modal -->
+    <BaseModal
+      :open="showEditReq"
+      title="Menge anpassen"
+      @close="showEditReq = false"
+    >
+      <BaseNumberStepper v-model="editReqAmount" :min="1" label="Benötigte Menge" />
+      <template #footer>
+        <div class="flex gap-3">
+          <BaseButton variant="secondary" full-width @click="showEditReq = false">
+            Abbrechen
+          </BaseButton>
+          <BaseButton full-width :disabled="editReqAmount <= 0" @click="saveEditReq">
             Speichern
           </BaseButton>
         </div>
@@ -825,6 +1179,58 @@ async function removeImage() {
         </div>
       </template>
     </BaseModal>
+
+    <!-- Image viewer modal -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="showImageModal && project?.imageUrl"
+          class="fixed inset-0 z-50 flex items-center justify-center p-6"
+          @click.self="showImageModal = false"
+        >
+          <div class="absolute inset-0 bg-black/70" @click="showImageModal = false" />
+          <div class="relative max-w-3xl max-h-[85vh] z-10">
+            <img
+              :src="project.imageUrl"
+              alt="Projektbild"
+              class="max-w-full max-h-[85vh] rounded-xl object-contain shadow-2xl"
+            />
+            <button
+              class="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-deep-200 text-earth-200 flex items-center justify-center hover:bg-deep-100 transition-colors shadow-lg border border-deep-50/30"
+              @click="showImageModal = false"
+            >
+              <X class="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Sketch viewer modal -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="showSketchModal && project?.sketchUrl"
+          class="fixed inset-0 z-50 flex items-center justify-center p-6"
+          @click.self="showSketchModal = false"
+        >
+          <div class="absolute inset-0 bg-black/70" @click="showSketchModal = false" />
+          <div class="relative max-w-3xl max-h-[85vh] z-10">
+            <img
+              :src="project.sketchUrl"
+              alt="Skizze"
+              class="max-w-full max-h-[85vh] rounded-xl object-contain shadow-2xl"
+            />
+            <button
+              class="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-deep-200 text-earth-200 flex items-center justify-center hover:bg-deep-100 transition-colors shadow-lg border border-deep-50/30"
+              @click="showSketchModal = false"
+            >
+              <X class="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 
   <!-- Project not found -->

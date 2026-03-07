@@ -2,10 +2,10 @@
 import { ref, computed } from 'vue'
 import { Plus, Minus, Trash2, Warehouse, Search, Edit3 } from 'lucide-vue-next'
 import { useMaterialStore } from '@entities/material/model/store'
-import { COMMON_UNITS } from '@entities/material/model/types'
+import { UNIT_GROUPS } from '@entities/material/model/types'
 import type { Material } from '@entities/material/model/types'
 import {
-  BaseButton, BaseCard, BaseInput, BaseSelect, BaseModal, BaseEmptyState
+  BaseButton, BaseCard, BaseInput, BaseSelect, BaseModal, BaseEmptyState, BaseNumberStepper
 } from '@shared/ui'
 
 const materialStore = useMaterialStore()
@@ -41,8 +41,11 @@ const filteredMaterials = computed(() => {
   )
 })
 
-const unitOptions = computed(() =>
-  [{ value: '', label: 'Keine Einheit' }, ...COMMON_UNITS.map(unit => ({ value: unit, label: unit }))]
+const unitGroups = computed(() =>
+  UNIT_GROUPS.map(group => ({
+    label: group.label,
+    options: group.units.map(unit => ({ value: unit, label: unit }))
+  }))
 )
 
 function resetForm() {
@@ -152,7 +155,7 @@ async function deleteMaterial(id: string) {
           <!-- Stock controls -->
           <div class="flex items-center gap-2">
             <button
-              class="w-10 h-10 rounded-xl bg-deep-200 text-earth-300 flex items-center justify-center hover:bg-deep-100 active:scale-95 transition-all disabled:opacity-50 border border-deep-50/30"
+              class="w-10 h-10 rounded-xl bg-forest-700 text-white flex items-center justify-center hover:bg-forest-600 active:scale-95 transition-all disabled:bg-forest-900 disabled:text-forest-600 border border-forest-500/40"
               :disabled="material.currentStock <= 0"
               @click="adjustStock(material.id, -1)"
             >
@@ -243,14 +246,13 @@ async function deleteMaterial(id: string) {
         <BaseSelect
           v-model="newMaterial.unit"
           label="Einheit (optional)"
-          :options="unitOptions"
+          :groups="unitGroups"
+          empty-label="Keine Einheit"
         />
 
-        <BaseInput
-          v-model.number="newMaterial.currentStock"
-          type="number"
+        <BaseNumberStepper
+          v-model="newMaterial.currentStock"
           label="Anfangsbestand"
-          placeholder="0"
         />
       </form>
       <template #footer>
@@ -296,14 +298,13 @@ async function deleteMaterial(id: string) {
         <BaseSelect
           v-model="editMaterial.unit"
           label="Einheit (optional)"
-          :options="unitOptions"
+          :groups="unitGroups"
+          empty-label="Keine Einheit"
         />
 
-        <BaseInput
-          v-model.number="editMaterial.currentStock"
-          type="number"
+        <BaseNumberStepper
+          v-model="editMaterial.currentStock"
           label="Aktueller Bestand"
-          placeholder="0"
         />
       </form>
       <template #footer>

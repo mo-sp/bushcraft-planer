@@ -6,9 +6,16 @@ interface Option {
   label: string
 }
 
+interface OptionGroup {
+  label: string
+  options: Option[]
+}
+
 interface Props {
   modelValue: string
-  options: Option[]
+  options?: Option[]
+  groups?: OptionGroup[]
+  emptyLabel?: string
   placeholder?: string
   label?: string
   error?: string
@@ -58,14 +65,38 @@ const selectedValue = computed({
       <option value="" disabled class="bg-deep-300">
         {{ placeholder }}
       </option>
-      <option
-        v-for="option in options"
-        :key="option.value"
-        :value="option.value"
-        class="bg-deep-300"
-      >
-        {{ option.label }}
+      <option v-if="emptyLabel" value="" class="bg-deep-300">
+        {{ emptyLabel }}
       </option>
+
+      <template v-if="groups">
+        <optgroup
+          v-for="group in groups"
+          :key="group.label"
+          :label="group.label"
+          class="bg-deep-300"
+        >
+          <option
+            v-for="opt in group.options"
+            :key="opt.value"
+            :value="opt.value"
+            class="bg-deep-300"
+          >
+            {{ opt.label }}
+          </option>
+        </optgroup>
+      </template>
+
+      <template v-else>
+        <option
+          v-for="option in options"
+          :key="option.value"
+          :value="option.value"
+          class="bg-deep-300"
+        >
+          {{ option.label }}
+        </option>
+      </template>
     </select>
     <p v-if="error" class="text-sm text-red-400">
       {{ error }}

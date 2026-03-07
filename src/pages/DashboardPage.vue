@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Building2, Compass, Hammer, FolderPlus, Filter, Trees } from 'lucide-vue-next'
+import { Plus, Building2, Compass, Hammer, FolderPlus, Filter, Trees, Search } from 'lucide-vue-next'
 import { useProjectStore } from '@entities/project/model/store'
 import { useTaskStore } from '@entities/task/model/store'
 import type { ProjectStatus } from '@entities/project/model/types'
@@ -16,6 +16,7 @@ const taskStore = useTaskStore()
 const selectedCategory = ref<string | 'all'>('all')
 const selectedStatus = ref<ProjectStatus | 'all'>('all')
 const showFilters = ref(false)
+const searchQuery = ref('')
 
 const categoryIcons: Record<string, typeof Building2> = {
   construction: Building2,
@@ -29,7 +30,11 @@ function getCategoryIcon(category: string) {
 }
 
 const filteredProjects = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim()
   return projectStore.projects.filter(project => {
+    if (query && !project.name.toLowerCase().includes(query) && !project.description.toLowerCase().includes(query)) {
+      return false
+    }
     if (selectedCategory.value !== 'all' && project.category !== selectedCategory.value) {
       return false
     }
@@ -98,6 +103,17 @@ function getCategoryName(project: { category: string; customCategoryName?: strin
         </BaseButton>
       </div>
     </header>
+
+    <!-- Search -->
+    <div class="relative mb-4">
+      <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-earth-500" />
+      <input
+        v-model="searchQuery"
+        type="search"
+        placeholder="Projekt suchen..."
+        class="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-deep-100 bg-deep-300 text-earth-100 placeholder-earth-500 focus:outline-none focus:border-forest-500 transition-colors"
+      >
+    </div>
 
     <!-- Filters -->
     <Transition
@@ -194,8 +210,19 @@ function getCategoryName(project: { category: string; customCategoryName?: strin
         @click="goToProject(project.id)"
       >
         <div class="flex gap-4">
-          <!-- Image placeholder -->
+          <!-- Project image or placeholder -->
           <div
+            v-if="project.imageUrl"
+            class="w-20 h-20 rounded-xl flex-shrink-0 overflow-hidden"
+          >
+            <img
+              :src="project.imageUrl"
+              :alt="project.name"
+              class="w-full h-full object-cover"
+            />
+          </div>
+          <div
+            v-else
             class="w-20 h-20 rounded-xl flex items-center justify-center flex-shrink-0"
             :style="{ backgroundColor: project.imagePlaceholder }"
           >

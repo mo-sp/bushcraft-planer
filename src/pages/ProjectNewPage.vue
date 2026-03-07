@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Building2, Compass, Hammer, FolderPlus, Plus, Package, Backpack, Trash2, Search, Pencil } from 'lucide-vue-next'
+import { ArrowLeft, Building2, Compass, Hammer, FolderPlus, Plus, Package, Backpack, Trash2, Search, Pencil, ImagePlus, X } from 'lucide-vue-next'
 import { useProjectStore } from '@entities/project/model/store'
 import { useMaterialStore } from '@entities/material/model/store'
 import { useEquipmentStore } from '@entities/equipment/model/store'
 import { PROJECT_CATEGORY_LABELS } from '@entities/project/model/types'
-import { COMMON_UNITS } from '@entities/material/model/types'
-import { BaseButton, BaseInput, BaseTextarea, BaseModal, BaseSelect, BaseCard } from '@shared/ui'
+import { UNIT_GROUPS } from '@entities/material/model/types'
+import { BaseButton, BaseInput, BaseTextarea, BaseModal, BaseSelect, BaseCard, BaseNumberStepper } from '@shared/ui'
+import { compressImage } from '@shared/lib/imageUtils'
 
 const router = useRouter()
 const projectStore = useProjectStore()
@@ -21,6 +22,8 @@ const customCategoryName = ref('')
 const isSubmitting = ref(false)
 const showCustomCategoryModal = ref(false)
 const newCategoryName = ref('')
+const projectImageUrl = ref<string | undefined>()
+const projectImageInput = ref<HTMLInputElement | null>(null)
 
 // Item selection state (materials + equipment)
 type ItemType = 'material' | 'equipment'
@@ -103,9 +106,28 @@ const filteredItems = computed(() => {
   )
 })
 
-const unitOptions = computed(() =>
-  [{ value: '', label: 'Keine Einheit' }, ...COMMON_UNITS.map(unit => ({ value: unit, label: unit }))]
+const unitGroups = computed(() =>
+  UNIT_GROUPS.map(group => ({
+    label: group.label,
+    options: group.units.map(unit => ({ value: unit, label: unit }))
+  }))
 )
+
+function triggerImageUpload() {
+  projectImageInput.value?.click()
+}
+
+async function handleImageUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  projectImageUrl.value = await compressImage(file)
+  input.value = ''
+}
+
+function removeImage() {
+  projectImageUrl.value = undefined
+}
 
 function selectCategory(key: string) {
   if (key === 'custom') {
@@ -249,7 +271,8 @@ async function submit() {
       name: name.value.trim(),
       description: description.value.trim(),
       category: category.value,
-      customCategoryName: customCategoryName.value || undefined
+      customCategoryName: customCategoryName.value || undefined,
+      imageUrl: projectImageUrl.value
     })
 
     if (project) {
@@ -312,6 +335,39 @@ function goBack() {
         placeholder="Beschreibe dein Projekt..."
         :rows="3"
       />
+
+      <!-- Project Image -->
+      <div>
+        <label class="text-sm font-medium text-earth-200 mb-3 block">
+          Projektbild (optional)
+        </label>
+        <input
+          ref="projectImageInput"
+          type="file"
+          accept="image/*"
+          class="hidden"
+          @change="handleImageUpload"
+        />
+        <div v-if="projectImageUrl" class="relative rounded-xl overflow-hidden">
+          <img :src="projectImageUrl" alt="Projektbild" class="w-full h-40 object-cover" />
+          <button
+            type="button"
+            class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
+            @click="removeImage"
+          >
+            <X class="w-4 h-4" />
+          </button>
+        </div>
+        <button
+          v-else
+          type="button"
+          class="w-full flex items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed border-deep-100 text-earth-400 hover:border-forest-500 hover:text-forest-400 transition-colors"
+          @click="triggerImageUpload"
+        >
+          <ImagePlus class="w-6 h-6" />
+          <span>Bild hochladen</span>
+        </button>
+      </div>
 
       <!-- Materials & Equipment Section -->
       <div>
@@ -558,11 +614,10 @@ function goBack() {
 
       <!-- Amount input -->
       <div v-if="selectedItemId" class="mb-4">
-        <BaseInput
-          v-model.number="itemAmount"
-          type="number"
-          label="Menge"
+        <BaseNumberStepper
+          v-model="itemAmount"
           :min="1"
+          label="Menge"
         />
       </div>
 
@@ -643,7 +698,8 @@ function goBack() {
           v-if="newItem.type === 'material'"
           v-model="newItem.unit"
           label="Einheit (optional)"
-          :options="unitOptions"
+          :groups="unitGroups"
+          empty-label="Keine Einheit"
         />
       </form>
 
@@ -673,12 +729,10 @@ function goBack() {
       title="Menge bearbeiten"
       @close="showEditModal = false"
     >
-      <BaseInput
-        v-model.number="editAmount"
-        type="number"
-        label="Menge"
+      <BaseNumberStepper
+        v-model="editAmount"
         :min="1"
-        autofocus
+        label="Menge"
       />
 
       <template #footer>

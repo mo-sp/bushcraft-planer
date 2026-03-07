@@ -9,6 +9,7 @@ export interface Project {
   category: ProjectCategory
   customCategoryName?: string
   imageUrl?: string
+  sketchUrl?: string
   imagePlaceholder: string
   status: ProjectStatus
   notes: string
@@ -25,6 +26,7 @@ export interface CreateProjectInput {
   customCategoryName?: string
   notes?: string
   imageUrl?: string
+  sketchUrl?: string
 }
 
 export interface UpdateProjectInput {
@@ -35,6 +37,7 @@ export interface UpdateProjectInput {
   status?: ProjectStatus
   notes?: string
   imageUrl?: string
+  sketchUrl?: string
 }
 
 export const PROJECT_CATEGORY_LABELS: Record<string, string> = {

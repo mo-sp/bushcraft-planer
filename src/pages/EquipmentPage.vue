@@ -4,7 +4,7 @@ import { Plus, Minus, Trash2, Backpack, Search, Edit3 } from 'lucide-vue-next'
 import { useEquipmentStore } from '@entities/equipment/model/store'
 import type { Equipment } from '@entities/equipment/model/types'
 import {
-  BaseButton, BaseCard, BaseInput, BaseModal, BaseEmptyState
+  BaseButton, BaseCard, BaseInput, BaseModal, BaseEmptyState, BaseNumberStepper
 } from '@shared/ui'
 
 const equipmentStore = useEquipmentStore()
@@ -142,7 +142,7 @@ async function deleteEquipment(id: string) {
           <!-- Stock controls -->
           <div class="flex items-center gap-2">
             <button
-              class="w-10 h-10 rounded-xl bg-deep-200 text-earth-300 flex items-center justify-center hover:bg-deep-100 active:scale-95 transition-all disabled:opacity-50 border border-deep-50/30"
+              class="w-10 h-10 rounded-xl bg-forest-700 text-white flex items-center justify-center hover:bg-forest-600 active:scale-95 transition-all disabled:bg-forest-900 disabled:text-forest-600 border border-forest-500/40"
               :disabled="item.currentStock <= 0"
               @click="adjustStock(item.id, -1)"
             >
@@ -230,11 +230,9 @@ async function deleteEquipment(id: string) {
           placeholder="z.B. 30L wasserdicht, 2-Personen"
         />
 
-        <BaseInput
-          v-model.number="newEquipment.currentStock"
-          type="number"
+        <BaseNumberStepper
+          v-model="newEquipment.currentStock"
           label="Anfangsbestand"
-          placeholder="0"
         />
       </form>
       <template #footer>
@@ -277,11 +275,9 @@ async function deleteEquipment(id: string) {
           placeholder="z.B. 30L wasserdicht, 2-Personen"
         />
 
-        <BaseInput
-          v-model.number="editEquipment.currentStock"
-          type="number"
+        <BaseNumberStepper
+          v-model="editEquipment.currentStock"
           label="Aktueller Bestand"
-          placeholder="0"
         />
       </form>
       <template #footer>
