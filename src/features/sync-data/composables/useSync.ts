@@ -368,6 +368,24 @@ export function useSync() {
       for (const config of TABLE_CONFIGS) {
         await syncTable(supabase, config, result)
       }
+
+      // Persist custom categories from synced projects into localStorage
+      if (result.pulled > 0) {
+        const projects = await db.projects.toArray()
+        const stored = localStorage.getItem('customCategories')
+        const customs: Record<string, string> = stored ? JSON.parse(stored) : {}
+        let changed = false
+        for (const p of projects) {
+          if (p.customCategoryName && p.category && !customs[p.category]) {
+            customs[p.category] = p.customCategoryName
+            changed = true
+          }
+        }
+        if (changed) {
+          localStorage.setItem('customCategories', JSON.stringify(customs))
+        }
+      }
+
       lastSyncedAt.value = new Date()
       lastResult.value = result
 
