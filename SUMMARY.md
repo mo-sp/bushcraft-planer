@@ -134,6 +134,56 @@ c54b0fc feat: UI-Verbesserungen ProjectDetail, Inline-Editing & Material/Equipme
 
 ---
 
+## Session 5 (2026-03-07)
+
+### 18. BaseNumberStepper Component
+- New +/- stepper component for quantity fields in modals
+- Replaces native browser number input (tiny arrows)
+- Used in Inventory, Equipment, ProjectNew, ProjectDetail modals
+
+### 19. Image Compression & Upload
+- `src/shared/lib/imageUtils.ts`: Auto resize (max 1600px) + JPEG quality 85%
+- Image upload on project creation page with preview
+- Existing project detail image upload now also compressed
+- Project image shown as thumbnail in dashboard project list
+
+### 20. Sketch Upload
+- New `sketchUrl` field on Project type
+- Dedicated "Skizze" section in project detail
+- Upload button when empty, compact row with actions when present
+- Modal viewer: click to open, dark backdrop, X to close, click outside to dismiss
+
+### 21. Project Image as Page Background
+- Subtle 4% opacity fixed background on project detail page
+- Banner area transparent (no separate image), background shows through uniformly
+- Click banner area opens full image in modal viewer
+- Top-right buttons: Upload, Remove (X, only when image), Delete
+
+### 22. Material & Equipment in Project Detail
+- Combined "Material & Ausruestung" section (was materials-only)
+- Full item selection modal with search, list, stock info
+- Create new materials/equipment directly from project detail
+- Color-coded icons: green (material), amber (equipment)
+- Duplicate items auto-merged (amounts added)
+- Edit amounts with +/- stepper, remove items
+
+### 23. Categorized Units
+- COMMON_UNITS restructured into UNIT_GROUPS with categories
+- Categories: Menge, Laenge, Gewicht, Volumen
+- BaseSelect updated with optgroup support (`groups` + `emptyLabel` props)
+
+### 24. UI Polish
+- Minus button: dark green (`forest-700`) with white symbol, distinct disabled state
+- Search bar on dashboard project overview page
+- "Bild entfernen" moved to top-right button row (X icon)
+
+### Commit
+```
+50575b2 feat: UI improvements session 5
+```
+
+---
+
 ## Was noch zu tun ist (naechste Session)
 
 ### Capacitor / Android (Prio 1)
@@ -142,9 +192,8 @@ c54b0fc feat: UI-Verbesserungen ProjectDetail, Inline-Editing & Material/Equipme
 3. **APK bauen** fuer echtes Geraet
 
 ### Fehlende Features
-1. **Material bei Projekterstellung**: Form erweitern
-2. **Drag & Drop** fuer Aufgaben-Reihenfolge
-3. **Supabase-Anbindung**: Backend-Sync (optional fuer User)
+1. **Drag & Drop** fuer Aufgaben-Reihenfolge
+2. **Supabase-Anbindung**: Backend-Sync (optional fuer User)
 
 ### Testing
 1. App im Browser testen: `npm run dev -- --host`
@@ -165,9 +214,13 @@ src/app/App.vue                        # Header mit Logo
 src/app/AppNavigation.vue              # Dark Nav
 src/entities/project/model/types.ts    # Neue Kategorien, notes Feld
 src/entities/task/model/types.ts       # duration, manpower
-src/entities/material/model/types.ts   # unit optional
+src/entities/material/model/types.ts   # unit optional, UNIT_GROUPS
 src/pages/ProjectDetailPage.vue        # Komplett ueberarbeitet
-src/pages/ProjectNewPage.vue           # Custom Category Modal
+src/pages/ProjectNewPage.vue           # Custom Category Modal, Image Upload
+src/pages/DashboardPage.vue            # Search, Image Thumbnails
+src/shared/ui/BaseNumberStepper.vue    # +/- Stepper Component
+src/shared/ui/BaseSelect.vue           # Optgroup Support
+src/shared/lib/imageUtils.ts           # Image Compression Utility
 capacitor.config.ts                    # Capacitor Konfiguration
 android/                               # Android-Projekt (Capacitor)
 ```
