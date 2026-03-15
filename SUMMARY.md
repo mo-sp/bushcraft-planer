@@ -383,17 +383,63 @@ cc01e56 feat: persist custom categories from synced projects to localStorage
 
 ---
 
+## Session 10 (2026-03-15)
+
+### 52. Task Assignees
+- `assignees: string[]` field on Task type
+- Multi-person selection for tasks
+- Supabase schema updated for task assignees
+
+### 53. Person Creation in Settings
+- "Person hinzufuegen" input + button in Personen-Sektion
+- Manual persons stored in localStorage (manualPersons key)
+- useKnownPersons extended: addPerson(), removeManualPerson()
+- Personen-Card always visible (even when empty)
+
+### 54. Custom Category Sync Fix
+- Bug: Custom categories showed raw key (custom_1773600146868) instead of name on other devices
+- Fix: ProjectNewPage now uses allCategories (derives from projects) instead of raw customCategories ref
+- Fix: getCategoryName with robust localStorage fallback
+- Fix: Store reload after sync persists new custom categories
+
+### 55. UI Alignment Fix
+- Material/Equipment buttons (stock, edit, delete) in ProjectDetailPage vertically centered
+- Changed items-start to items-center on flex containers
+
+### 56. Settings Restructure
+- Sync info box: explains when sync happens and conflict behavior
+- Data counts grid after sync (projects, materials, equipment, locations)
+- "Lokale Daten loeschen" moved to bottom as "Gefahrenzone" with explanation
+- Removed unused Database icon import
+
+### 57. Auto-Add Participants
+- BaseComboInput: selecting from dropdown now emits 'enter' automatically
+- Participants added immediately on dropdown selection (no extra + click needed)
+- Applies to all ComboInput usages (owner fields, participants, etc.)
+
+### 58. Version 0.9.0 Release
+- Version bumped in package.json, build.gradle (versionCode 2), SplashScreen, Settings
+- Debug APK built: NatureBoyz-0.9.0.apk (5.4 MB)
+- Telegram changelog created for distribution
+
+### Commits
+```
+170a02e feat: task assignees, person creation, custom category sync fix & UI alignment
+0d0e5c2 feat: sync info section, data counts, settings restructure & auto-add participants
+caaa094 chore: bump version to 0.9.0
+```
+
+---
+
 ## Was noch zu tun ist (naechste Session)
 
 ### Fehlende Features
-1. **Sound Mute Option** fuer Intro-Song
-2. **Drag & Drop** fuer Aufgaben-Reihenfolge
-3. **Nature Sounds** als App-Hintergrundsound (optional)
+1. **Drag & Drop** fuer Aufgaben-Reihenfolge
+2. **Nature Sounds** als App-Hintergrundsound (optional)
 
 ### Release
-1. Neue APK bauen (cap:sync + cap:run)
-2. Release-APK mit Signierung
-3. Version 0.9 und 1.0 Planung
+1. Release-APK mit Signierung
+2. Version 1.0 Planung
 
 ### Polish
 1. Animationen verbessern
@@ -405,29 +451,32 @@ cc01e56 feat: persist custom categories from synced projects to localStorage
 src/style.css                          # Dark Theme Farben, scrollbar-hide
 src/app/App.vue                        # Header, Sync Status Bar, Auto-Sync, Sync Loading
 src/app/AppNavigation.vue              # 5 Tabs inkl. Lagerorte
+src/app/SplashScreen.vue               # Version 0.9.0
 src/entities/project/model/types.ts    # participants, responsible, storageLocationId
-src/entities/task/model/types.ts       # duration, manpower
+src/entities/project/model/store.ts    # getCategoryName robust fallback
+src/entities/task/model/types.ts       # duration, manpower, assignees
+src/entities/task/model/store.ts       # assignees support
 src/entities/material/model/types.ts   # unit optional, UNIT_GROUPS, owner, storageLocationId
 src/entities/equipment/model/types.ts  # owner, storageLocationId
 src/entities/storage-location/         # Neues Entity (types + store)
 src/pages/DashboardPage.vue            # Badge-Filter, Personen-Badges auf Karten
-src/pages/ProjectDetailPage.vue        # Participants, Responsible, Location, Auto-Add
-src/pages/ProjectNewPage.vue           # Participants, Responsible, Location, Auto-Add
+src/pages/ProjectDetailPage.vue        # Participants, Responsible, Location, Auto-Add, Alignment Fix
+src/pages/ProjectNewPage.vue           # Participants, Responsible, Location, allCategories
 src/pages/StorageLocationsPage.vue     # Lagerverwaltung + Besitzer-Filter
 src/pages/InventoryPage.vue            # Lager + Besitzer Filter-Badges, ComboInput
 src/pages/EquipmentPage.vue            # Lager + Besitzer Filter-Badges, ComboInput
-src/pages/SettingsPage.vue             # Person Management, PWA-Hint Capacitor-Check
-src/features/sync-data/               # Supabase Sync (participants, responsible)
-src/shared/ui/BaseComboInput.vue       # Dropdown + Freitext Input (neu)
+src/pages/SettingsPage.vue             # Person Management, Sync Info, Gefahrenzone
+src/features/sync-data/               # Supabase Sync (store reload after category sync)
+src/shared/ui/BaseComboInput.vue       # Dropdown auto-enter, Freitext Input
 src/shared/ui/BaseNumberStepper.vue    # +/- Stepper Component
 src/shared/ui/BaseSelect.vue           # Optgroup Support
-src/shared/lib/useKnownPersons.ts      # Personen-Composable (neu)
+src/shared/lib/useKnownPersons.ts      # Personen-Composable (addPerson, removeManualPerson)
 src/shared/lib/imageUtils.ts           # Image Compression Utility
-src/shared/api/db.ts                   # Dexie DB v3 + StorageLocations
+src/shared/api/db.ts                   # Dexie DB v3 + StorageLocations + task assignees
 src/shared/api/supabase.ts            # Supabase Client
-supabase-schema.sql                    # DB Schema (participants, responsible)
+supabase-schema.sql                    # DB Schema (task assignees)
 capacitor.config.ts                    # Capacitor Konfiguration
-android/                               # Android-Projekt (Capacitor)
+android/                               # Android-Projekt (Capacitor), versionCode 2
 .env                                   # Supabase Credentials (nicht im Repo)
 ```
 
