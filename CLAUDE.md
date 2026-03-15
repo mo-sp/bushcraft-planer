@@ -13,7 +13,7 @@ Offline-first mit IndexedDB, optionale Supabase-Sync.
 - Dexie.js 4 (IndexedDB-Wrapper)
 - Lucide Vue Next (Icons)
 - VueUse (Composables)
-- Supabase (Backend & Sync - bidirektional, manuell via Settings)
+- Supabase (Backend & Sync - bidirektional, Auto-Sync + manuell)
 - vite-plugin-pwa (Service Worker)
 - Capacitor 8 (Native Android/iOS Wrapper)
 - Vitest + happy-dom (Testing)
@@ -22,7 +22,7 @@ Offline-first mit IndexedDB, optionale Supabase-Sync.
 ```
 src/
   app/              -> App.vue, AppNavigation.vue, router.ts, main.ts
-  entities/         -> Business-Logik (project, task, material, equipment)
+  entities/         -> Business-Logik (project, task, material, equipment, storage-location)
     [entity]/model/ -> types.ts (Interfaces), store.ts (Pinia Store)
   features/         -> User-Interaktionen (sync-data mit Supabase)
   pages/            -> Seiten-Komponenten (*.vue)
@@ -70,15 +70,16 @@ npm run cap:run      # Auf angeschlossenem Geraet/Emulator starten
 - `/project/:id` Projektdetail (Inline-Editing)
 - `/inventory` Materiallager
 - `/equipment` Ausruestungslager
+- `/storage` Lagerorte (Lagerverwaltung)
 - `/settings` Einstellungen
 
 ## Navigation
-4 Tabs: Projekte | Material | Ausruestung | Settings
+5 Tabs: Projekte | Material | Ausruestung | Lagerorte | Settings
 
 ## Supabase
 - Projekt: `uhzyfmunlkxyfbuvydxm`
 - Free Tier, RLS deaktiviert (shared data, kein Auth)
 - Env-Variablen in `.env` (nicht im Repo)
-- Schema: `supabase-schema.sql` (6 Tabellen)
-- Sync: bidirektional, manuell via Settings, last-write-wins (updated_at)
-- Tabellen: projects, tasks, materials, material_requirements, equipment, equipment_requirements
+- Schema: `supabase-schema.sql` (7 Tabellen)
+- Sync: bidirektional, Auto-Sync beim Start + manuell via Header, last-write-wins (updated_at)
+- Tabellen: storage_locations, projects, tasks, materials, material_requirements, equipment, equipment_requirements
