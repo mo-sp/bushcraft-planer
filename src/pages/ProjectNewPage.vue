@@ -8,7 +8,8 @@ import { useEquipmentStore } from '@entities/equipment/model/store'
 import { useTaskStore } from '@entities/task/model/store'
 import { useStorageLocationStore } from '@entities/storage-location/model/store'
 import { UNIT_GROUPS } from '@entities/material/model/types'
-import { BaseButton, BaseInput, BaseTextarea, BaseModal, BaseSelect, BaseCard, BaseNumberStepper } from '@shared/ui'
+import { BaseButton, BaseInput, BaseTextarea, BaseModal, BaseSelect, BaseCard, BaseNumberStepper, BaseComboInput } from '@shared/ui'
+import { useKnownPersons } from '@shared/lib/useKnownPersons'
 
 // Task planning state
 interface PlannedTask {
@@ -25,12 +26,16 @@ const materialStore = useMaterialStore()
 const equipmentStore = useEquipmentStore()
 const taskStore = useTaskStore()
 const locationStore = useStorageLocationStore()
+const { knownPersons } = useKnownPersons()
 
 const name = ref('')
 const description = ref('')
 const category = ref('construction')
 const customCategoryName = ref('')
 const storageLocationId = ref('')
+const participants = ref<string[]>([])
+const responsible = ref('')
+const newParticipant = ref('')
 
 const locationOptions = computed(() =>
   locationStore.locations.map(l => ({ value: l.id, label: l.name }))
@@ -349,6 +354,23 @@ function formatDuration(minutes: number): string {
   return m > 0 ? `${h} Std. ${m} Min.` : `${h} Std.`
 }
 
+// Participant suggestions: known persons minus already added
+const participantSuggestions = computed(() =>
+  knownPersons.value.filter(p => !participants.value.includes(p))
+)
+
+function addParticipant() {
+  const name = newParticipant.value.trim()
+  if (name && !participants.value.includes(name)) {
+    participants.value.push(name)
+  }
+  newParticipant.value = ''
+}
+
+function removeParticipant(index: number) {
+  participants.value.splice(index, 1)
+}
+
 function getItemDisplayName(item: { name: string; specifications?: string }) {
   if (item.specifications) {
     return `${item.name} (${item.specifications})`
@@ -372,6 +394,8 @@ async function submit() {
       category: category.value,
       customCategoryName: customCategoryName.value || undefined,
       storageLocationId: storageLocationId.value || undefined,
+      participants: participants.value.length > 0 ? participants.value : undefined,
+      responsible: responsible.value.trim() || undefined,
       imageUrl: projectImageUrl.value
     })
 
@@ -658,6 +682,56 @@ function goBack() {
         empty-label="Kein Lagerort"
       />
 
+      <!-- Responsible -->
+      <BaseComboInput
+        v-model="responsible"
+        :suggestions="knownPersons"
+        label="Idee / Verantwortlich (optional)"
+        placeholder="z.B. Moritz"
+      />
+
+      <!-- Participants -->
+      <div>
+        <label class="text-sm font-medium text-earth-200 mb-3 block">
+          Beteiligte (optional)
+        </label>
+        <!-- Added participants as badges -->
+        <div v-if="participants.length > 0" class="flex flex-wrap gap-2 mb-3">
+          <span
+            v-for="(person, i) in participants"
+            :key="i"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-forest-900/40 text-forest-300 text-sm border border-forest-700/40"
+          >
+            {{ person }}
+            <button
+              type="button"
+              class="text-forest-500 hover:text-red-400 transition-colors"
+              @click="removeParticipant(i)"
+            >
+              <X class="w-3.5 h-3.5" />
+            </button>
+          </span>
+        </div>
+        <!-- Add participant input -->
+        <div class="flex gap-2">
+          <div class="flex-1">
+            <BaseComboInput
+              v-model="newParticipant"
+              :suggestions="participantSuggestions"
+              placeholder="Name eingeben..."
+              @enter="addParticipant"
+            />
+          </div>
+          <BaseButton
+            type="button"
+            :disabled="!newParticipant.trim()"
+            @click="addParticipant"
+          >
+            <Plus class="w-5 h-5" />
+          </BaseButton>
+        </div>
+      </div>
+
       <!-- Submit -->
       <BaseButton
         type="submit"
@@ -878,8 +952,9 @@ function goBack() {
           empty-label="Keine Einheit"
         />
 
-        <BaseInput
+        <BaseComboInput
           v-model="newItem.owner"
+          :suggestions="knownPersons"
           label="Eigentümer (optional)"
           placeholder="z.B. Moritz, Tim"
         />

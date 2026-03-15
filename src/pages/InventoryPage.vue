@@ -7,14 +7,18 @@ import { useStorageLocationStore } from '@entities/storage-location/model/store'
 import { UNIT_GROUPS } from '@entities/material/model/types'
 import type { Material } from '@entities/material/model/types'
 import {
-  BaseButton, BaseCard, BaseInput, BaseSelect, BaseModal, BaseEmptyState, BaseNumberStepper
+  BaseButton, BaseCard, BaseInput, BaseSelect, BaseModal, BaseEmptyState, BaseNumberStepper, BaseComboInput
 } from '@shared/ui'
+import { useKnownPersons } from '@shared/lib/useKnownPersons'
 
 const materialStore = useMaterialStore()
 const projectStore = useProjectStore()
 const locationStore = useStorageLocationStore()
+const { knownPersons } = useKnownPersons()
 
 const searchQuery = ref('')
+const selectedLocationFilter = ref<string | null>(null)
+const selectedOwnerFilter = ref<string | null>(null)
 const showAddMaterial = ref(false)
 const showEditMaterial = ref(false)
 const showDeleteConfirm = ref<string | null>(null)
@@ -46,13 +50,51 @@ const locationOptions = computed(() =>
   locationStore.locations.map(l => ({ value: l.id, label: l.name }))
 )
 
-const filteredMaterials = computed(() => {
-  const query = searchQuery.value.toLowerCase().trim()
-  if (!query) return materialStore.materialWithStock
+// Locations that have at least one material assigned
+const usedLocations = computed(() => {
+  const ids = new Set(materialStore.materials.filter(m => m.storageLocationId).map(m => m.storageLocationId!))
+  return locationStore.locations.filter(l => ids.has(l.id))
+})
 
-  return materialStore.materialWithStock.filter(m =>
-    m.name.toLowerCase().includes(query)
-  )
+const hasUnassigned = computed(() =>
+  materialStore.materials.some(m => !m.storageLocationId)
+)
+
+const uniqueOwners = computed(() => {
+  const owners = new Set(materialStore.materials.filter(m => m.owner).map(m => m.owner!))
+  return [...owners].sort()
+})
+
+const hasUnowned = computed(() =>
+  materialStore.materials.some(m => !m.owner)
+)
+
+const filteredMaterials = computed(() => {
+  let items = materialStore.materialWithStock
+
+  // Location filter
+  const loc = selectedLocationFilter.value
+  if (loc === 'none') {
+    items = items.filter(m => !m.storageLocationId)
+  } else if (loc) {
+    items = items.filter(m => m.storageLocationId === loc)
+  }
+
+  // Owner filter
+  const owner = selectedOwnerFilter.value
+  if (owner === 'none') {
+    items = items.filter(m => !m.owner)
+  } else if (owner) {
+    items = items.filter(m => m.owner === owner)
+  }
+
+  // Search filter
+  const query = searchQuery.value.toLowerCase().trim()
+  if (query) {
+    items = items.filter(m => m.name.toLowerCase().includes(query))
+  }
+
+  return items
 })
 
 const unitGroups = computed(() =>
@@ -162,8 +204,8 @@ async function deleteMaterial(id: string) {
       </BaseButton>
     </header>
 
-    <!-- Search (sticky) -->
-    <div class="sticky top-0 z-30 bg-deep-200 pb-3 -mx-4 px-4 pt-1">
+    <!-- Search & Location filter (sticky) -->
+    <div class="sticky top-0 z-30 bg-deep-200 pb-3 -mx-4 px-4 pt-1 space-y-2">
       <div class="relative">
         <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-earth-500" />
         <input
@@ -172,6 +214,74 @@ async function deleteMaterial(id: string) {
           placeholder="Material suchen..."
           class="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-deep-100 bg-deep-300 text-earth-100 placeholder-earth-500 focus:outline-none focus:border-forest-500 transition-colors"
         >
+      </div>
+
+      <!-- Location filter badges -->
+      <div v-if="usedLocations.length > 0 || hasUnassigned" class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        <button
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedLocationFilter === null
+            ? 'bg-forest-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedLocationFilter = null"
+        >
+          Alle
+        </button>
+        <button
+          v-for="loc in usedLocations"
+          :key="loc.id"
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedLocationFilter === loc.id
+            ? 'bg-forest-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedLocationFilter = selectedLocationFilter === loc.id ? null : loc.id"
+        >
+          {{ loc.name }}
+        </button>
+        <button
+          v-if="hasUnassigned"
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedLocationFilter === 'none'
+            ? 'bg-earth-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedLocationFilter = selectedLocationFilter === 'none' ? null : 'none'"
+        >
+          Ohne Lager
+        </button>
+      </div>
+
+      <!-- Owner filter badges -->
+      <div v-if="uniqueOwners.length > 0" class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        <button
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedOwnerFilter === null
+            ? 'bg-amber-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedOwnerFilter = null"
+        >
+          Alle Besitzer
+        </button>
+        <button
+          v-for="owner in uniqueOwners"
+          :key="owner"
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedOwnerFilter === owner
+            ? 'bg-amber-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedOwnerFilter = selectedOwnerFilter === owner ? null : owner"
+        >
+          {{ owner }}
+        </button>
+        <button
+          v-if="hasUnowned"
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedOwnerFilter === 'none'
+            ? 'bg-earth-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedOwnerFilter = selectedOwnerFilter === 'none' ? null : 'none'"
+        >
+          Kein Besitzer
+        </button>
       </div>
     </div>
 
@@ -355,8 +465,9 @@ async function deleteMaterial(id: string) {
           empty-label="Keine Einheit"
         />
 
-        <BaseInput
+        <BaseComboInput
           v-model="newMaterial.owner"
+          :suggestions="knownPersons"
           label="Eigentümer (optional)"
           placeholder="z.B. Moritz, Tim"
         />
@@ -420,8 +531,9 @@ async function deleteMaterial(id: string) {
           empty-label="Keine Einheit"
         />
 
-        <BaseInput
+        <BaseComboInput
           v-model="editMaterial.owner"
+          :suggestions="knownPersons"
           label="Eigentümer (optional)"
           placeholder="z.B. Moritz, Tim"
         />

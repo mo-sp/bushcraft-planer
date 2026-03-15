@@ -15,6 +15,7 @@ const materialStore = useMaterialStore()
 const equipmentStore = useEquipmentStore()
 
 const searchQuery = ref('')
+const selectedOwnerFilter = ref<string | null>(null)
 const showAddLocation = ref(false)
 const showEditLocation = ref(false)
 const showDeleteConfirm = ref<string | null>(null)
@@ -34,14 +35,49 @@ const editLocation = ref({
   description: ''
 })
 
-const filteredLocations = computed(() => {
-  const query = searchQuery.value.toLowerCase().trim()
-  if (!query) return locationStore.locations
+// Unique owners across all items in all locations
+const uniqueOwners = computed(() => {
+  const owners = new Set<string>()
+  for (const m of materialStore.materials) {
+    if (m.owner && m.storageLocationId) owners.add(m.owner)
+  }
+  for (const e of equipmentStore.equipment) {
+    if (e.owner && e.storageLocationId) owners.add(e.owner)
+  }
+  return [...owners].sort()
+})
 
-  return locationStore.locations.filter(l =>
-    l.name.toLowerCase().includes(query) ||
-    (l.description && l.description.toLowerCase().includes(query))
-  )
+// Get owners that have items in a specific location
+function getOwnersInLocation(locationId: string): string[] {
+  const owners = new Set<string>()
+  for (const m of materialStore.materialsByLocation(locationId)) {
+    if (m.owner) owners.add(m.owner)
+  }
+  for (const e of equipmentStore.equipmentByLocation(locationId)) {
+    if (e.owner) owners.add(e.owner)
+  }
+  return [...owners]
+}
+
+const filteredLocations = computed(() => {
+  let items = locationStore.locations
+
+  // Owner filter: show only locations where this owner has items
+  const owner = selectedOwnerFilter.value
+  if (owner) {
+    items = items.filter(l => getOwnersInLocation(l.id).includes(owner))
+  }
+
+  // Search filter
+  const query = searchQuery.value.toLowerCase().trim()
+  if (query) {
+    items = items.filter(l =>
+      l.name.toLowerCase().includes(query) ||
+      (l.description && l.description.toLowerCase().includes(query))
+    )
+  }
+
+  return items
 })
 
 function getMaterialCount(locationId: string): number {
@@ -134,8 +170,8 @@ async function loadDefaults() {
       </BaseButton>
     </header>
 
-    <!-- Search -->
-    <div class="sticky top-0 z-30 bg-deep-200 pb-3 -mx-4 px-4 pt-1">
+    <!-- Search & owner filter -->
+    <div class="sticky top-0 z-30 bg-deep-200 pb-3 -mx-4 px-4 pt-1 space-y-2">
       <div class="relative">
         <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-earth-500" />
         <input
@@ -144,6 +180,30 @@ async function loadDefaults() {
           placeholder="Lagerort suchen..."
           class="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-deep-100 bg-deep-300 text-earth-100 placeholder-earth-500 focus:outline-none focus:border-forest-500 transition-colors"
         >
+      </div>
+
+      <!-- Owner filter badges -->
+      <div v-if="uniqueOwners.length > 0" class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        <button
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedOwnerFilter === null
+            ? 'bg-amber-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedOwnerFilter = null"
+        >
+          Alle Besitzer
+        </button>
+        <button
+          v-for="owner in uniqueOwners"
+          :key="owner"
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedOwnerFilter === owner
+            ? 'bg-amber-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedOwnerFilter = selectedOwnerFilter === owner ? null : owner"
+        >
+          {{ owner }}
+        </button>
       </div>
     </div>
 

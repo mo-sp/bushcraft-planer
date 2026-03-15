@@ -6,14 +6,18 @@ import { useProjectStore } from '@entities/project/model/store'
 import { useStorageLocationStore } from '@entities/storage-location/model/store'
 import type { Equipment } from '@entities/equipment/model/types'
 import {
-  BaseButton, BaseCard, BaseInput, BaseSelect, BaseModal, BaseEmptyState, BaseNumberStepper
+  BaseButton, BaseCard, BaseInput, BaseSelect, BaseModal, BaseEmptyState, BaseNumberStepper, BaseComboInput
 } from '@shared/ui'
+import { useKnownPersons } from '@shared/lib/useKnownPersons'
 
 const equipmentStore = useEquipmentStore()
 const projectStore = useProjectStore()
 const locationStore = useStorageLocationStore()
+const { knownPersons } = useKnownPersons()
 
 const searchQuery = ref('')
+const selectedLocationFilter = ref<string | null>(null)
+const selectedOwnerFilter = ref<string | null>(null)
 const showAddEquipment = ref(false)
 const showEditEquipment = ref(false)
 const showDeleteConfirm = ref<string | null>(null)
@@ -48,14 +52,50 @@ function getLocationName(locationId?: string): string | undefined {
   return locationStore.locationById(locationId)?.name
 }
 
-const filteredEquipment = computed(() => {
-  const query = searchQuery.value.toLowerCase().trim()
-  if (!query) return equipmentStore.equipmentWithStock
+const usedLocations = computed(() => {
+  const ids = new Set(equipmentStore.equipment.filter(e => e.storageLocationId).map(e => e.storageLocationId!))
+  return locationStore.locations.filter(l => ids.has(l.id))
+})
 
-  return equipmentStore.equipmentWithStock.filter(e =>
-    e.name.toLowerCase().includes(query) ||
-    (e.specifications && e.specifications.toLowerCase().includes(query))
-  )
+const hasUnassigned = computed(() =>
+  equipmentStore.equipment.some(e => !e.storageLocationId)
+)
+
+const uniqueOwners = computed(() => {
+  const owners = new Set(equipmentStore.equipment.filter(e => e.owner).map(e => e.owner!))
+  return [...owners].sort()
+})
+
+const hasUnowned = computed(() =>
+  equipmentStore.equipment.some(e => !e.owner)
+)
+
+const filteredEquipment = computed(() => {
+  let items = equipmentStore.equipmentWithStock
+
+  const loc = selectedLocationFilter.value
+  if (loc === 'none') {
+    items = items.filter(e => !e.storageLocationId)
+  } else if (loc) {
+    items = items.filter(e => e.storageLocationId === loc)
+  }
+
+  const owner = selectedOwnerFilter.value
+  if (owner === 'none') {
+    items = items.filter(e => !e.owner)
+  } else if (owner) {
+    items = items.filter(e => e.owner === owner)
+  }
+
+  const query = searchQuery.value.toLowerCase().trim()
+  if (query) {
+    items = items.filter(e =>
+      e.name.toLowerCase().includes(query) ||
+      (e.specifications && e.specifications.toLowerCase().includes(query))
+    )
+  }
+
+  return items
 })
 
 // Get projects assigned to an equipment item
@@ -149,8 +189,8 @@ async function deleteEquipment(id: string) {
       </BaseButton>
     </header>
 
-    <!-- Search (sticky) -->
-    <div class="sticky top-0 z-30 bg-deep-200 pb-3 -mx-4 px-4 pt-1">
+    <!-- Search & Location filter (sticky) -->
+    <div class="sticky top-0 z-30 bg-deep-200 pb-3 -mx-4 px-4 pt-1 space-y-2">
       <div class="relative">
         <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-earth-500" />
         <input
@@ -159,6 +199,74 @@ async function deleteEquipment(id: string) {
           placeholder="Ausrüstung suchen..."
           class="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-deep-100 bg-deep-300 text-earth-100 placeholder-earth-500 focus:outline-none focus:border-forest-500 transition-colors"
         >
+      </div>
+
+      <!-- Location filter badges -->
+      <div v-if="usedLocations.length > 0 || hasUnassigned" class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        <button
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedLocationFilter === null
+            ? 'bg-forest-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedLocationFilter = null"
+        >
+          Alle
+        </button>
+        <button
+          v-for="loc in usedLocations"
+          :key="loc.id"
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedLocationFilter === loc.id
+            ? 'bg-forest-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedLocationFilter = selectedLocationFilter === loc.id ? null : loc.id"
+        >
+          {{ loc.name }}
+        </button>
+        <button
+          v-if="hasUnassigned"
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedLocationFilter === 'none'
+            ? 'bg-earth-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedLocationFilter = selectedLocationFilter === 'none' ? null : 'none'"
+        >
+          Ohne Lager
+        </button>
+      </div>
+
+      <!-- Owner filter badges -->
+      <div v-if="uniqueOwners.length > 0" class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        <button
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedOwnerFilter === null
+            ? 'bg-amber-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedOwnerFilter = null"
+        >
+          Alle Besitzer
+        </button>
+        <button
+          v-for="owner in uniqueOwners"
+          :key="owner"
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedOwnerFilter === owner
+            ? 'bg-amber-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedOwnerFilter = selectedOwnerFilter === owner ? null : owner"
+        >
+          {{ owner }}
+        </button>
+        <button
+          v-if="hasUnowned"
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedOwnerFilter === 'none'
+            ? 'bg-earth-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedOwnerFilter = selectedOwnerFilter === 'none' ? null : 'none'"
+        >
+          Kein Besitzer
+        </button>
       </div>
     </div>
 
@@ -335,8 +443,9 @@ async function deleteEquipment(id: string) {
           placeholder="z.B. 30L wasserdicht, 2-Personen"
         />
 
-        <BaseInput
+        <BaseComboInput
           v-model="newEquipment.owner"
+          :suggestions="knownPersons"
           label="Eigentümer (optional)"
           placeholder="z.B. Moritz, Tim"
         />
@@ -393,8 +502,9 @@ async function deleteEquipment(id: string) {
           placeholder="z.B. 30L wasserdicht, 2-Personen"
         />
 
-        <BaseInput
+        <BaseComboInput
           v-model="editEquipment.owner"
+          :suggestions="knownPersons"
           label="Eigentümer (optional)"
           placeholder="z.B. Moritz, Tim"
         />

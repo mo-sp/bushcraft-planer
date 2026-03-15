@@ -19,6 +19,8 @@ CREATE TABLE projects (
   category TEXT NOT NULL DEFAULT 'construction',
   custom_category_name TEXT,
   storage_location_id TEXT REFERENCES storage_locations(id) ON DELETE SET NULL,
+  participants TEXT[],
+  responsible TEXT,
   status TEXT NOT NULL DEFAULT 'planning',
   notes TEXT,
   image_url TEXT,

@@ -172,12 +172,14 @@ onMounted(async () => {
 
     <!-- Loading state -->
     <div
-      v-if="isLoading"
+      v-if="isLoading || (isSyncing && !autoSyncDone)"
       class="flex-1 flex items-center justify-center"
     >
       <div class="flex flex-col items-center gap-4">
         <div class="w-12 h-12 border-4 border-forest-700 border-t-forest-400 rounded-full animate-spin" />
-        <p class="text-earth-300">Lade Daten...</p>
+        <p class="text-earth-300">
+          {{ isLoading ? 'Lade Daten...' : 'Synchronisiere...' }}
+        </p>
       </div>
     </div>
 

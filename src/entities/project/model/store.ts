@@ -92,6 +92,8 @@ export const useProjectStore = defineStore('projects', () => {
       category: input.category,
       customCategoryName: input.customCategoryName,
       storageLocationId: input.storageLocationId,
+      participants: input.participants || [],
+      responsible: input.responsible,
       imageUrl: input.imageUrl,
       imagePlaceholder: getRandomPlaceholderColor(),
       status: 'planned',

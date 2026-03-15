@@ -341,9 +341,44 @@ cc01e56 feat: persist custom categories from synced projects to localStorage
 - `storage_location_id` column on projects
 - Indexes for storage location lookups
 
+### 46. Filter Badge Rows (alle Seiten)
+- Material + Ausruestung: Lager-Filter (gruen) + Besitzer-Filter (amber) als Badge-Leisten
+- Dashboard: Filter-Panel entfernt, alles als sticky Badge-Leisten (Beteiligte, Status, Kategorien)
+- Lagerorte: Besitzer-Filter (zeigt nur Lager mit Items des Besitzers)
+- Alle Filter togglebar (nochmal klicken = zuruecksetzen)
+- `scrollbar-hide` CSS utility fuer horizontales Scrollen
+
+### 47. Participants & Responsible on Projects
+- `participants: string[]` und `responsible: string` Felder auf Project
+- ProjectNewPage: Beteiligte als Chips mit +/X, Verantwortlich als ComboInput
+- ProjectDetailPage: Live-editierbare Beteiligte + Verantwortlich
+- DashboardPage: Personen-Badges auf Projektkarten (amber=Verantwortlich, gruen=Beteiligte)
+- Supabase: `participants TEXT[]` + `responsible TEXT` Spalten
+
+### 48. BaseComboInput Component
+- Input mit Dropdown-Vorschlaegen aus bekannten Namen + Freitext
+- `@enter` Event fuer Enter-Taste
+- Ersetzt alle Owner-Inputs in Material/Equipment/Project-Seiten
+
+### 49. useKnownPersons Composable
+- Sammelt alle Namen aus Material-Owner, Equipment-Owner, Project-Participants/Responsible
+- Wird fuer Autocomplete-Vorschlaege ueberall verwendet
+
+### 50. Person Management (Settings)
+- Personen-Sektion mit allen bekannten Namen als Badges mit X-Button
+- "Person umbenennen" Modal (ComboInput fuer alten Namen, Freitext fuer neuen)
+- "Person entfernen" mit Bestaetigungsmodal (loescht Name ueberall)
+- PWA-Installationshinweis nur in Webversion (Capacitor.isNativePlatform() Check)
+
+### 51. Sync Loading Screen
+- Loading-Screen bleibt sichtbar waehrend Auto-Sync ("Synchronisiere...")
+- Zeigt "Lade Daten..." -> "Synchronisiere..." Progression
+
 ### Commits
 ```
-(pending)
+4510a50 feat: storage locations, owner field, auto-sync & sync status bar
+784345a docs: update CLAUDE.md and SUMMARY.md for session 9
+(pending) feat: filters, participants, person management & combo input
 ```
 
 ---
@@ -351,46 +386,46 @@ cc01e56 feat: persist custom categories from synced projects to localStorage
 ## Was noch zu tun ist (naechste Session)
 
 ### Fehlende Features
-1. **Drag & Drop** fuer Aufgaben-Reihenfolge
-2. **Sticky Search** in Material/Ausruestung (Suche scrollt noch nicht mit)
-3. **Sound Mute Option** fuer Intro-Song
-4. **Nature Sounds** als App-Hintergrundsound (optional)
+1. **Sound Mute Option** fuer Intro-Song
+2. **Drag & Drop** fuer Aufgaben-Reihenfolge
+3. **Nature Sounds** als App-Hintergrundsound (optional)
+
+### Release
+1. Neue APK bauen (cap:sync + cap:run)
+2. Release-APK mit Signierung
+3. Version 0.9 und 1.0 Planung
 
 ### Polish
 1. Animationen verbessern
 2. Touch-Feedback (Haptic via Capacitor)
-3. Loading-States
-4. Error-Handling
-
-### Release
-1. Release-APK mit Signierung
-2. Version 0.9 und 1.0 Planung
 
 ## Dateien mit wichtigen Aenderungen
 
 ```
-src/style.css                          # Dark Theme Farben
-src/app/App.vue                        # Header, Sync Status Bar, Auto-Sync
+src/style.css                          # Dark Theme Farben, scrollbar-hide
+src/app/App.vue                        # Header, Sync Status Bar, Auto-Sync, Sync Loading
 src/app/AppNavigation.vue              # 5 Tabs inkl. Lagerorte
-src/entities/project/model/types.ts    # Neue Kategorien, notes, storageLocationId
+src/entities/project/model/types.ts    # participants, responsible, storageLocationId
 src/entities/task/model/types.ts       # duration, manpower
 src/entities/material/model/types.ts   # unit optional, UNIT_GROUPS, owner, storageLocationId
 src/entities/equipment/model/types.ts  # owner, storageLocationId
 src/entities/storage-location/         # Neues Entity (types + store)
-src/pages/ProjectDetailPage.vue        # Komplett ueberarbeitet, Location, Auto-Add
-src/pages/ProjectNewPage.vue           # Custom Category, Image, Tasks, Location, Auto-Add
-src/pages/StorageLocationsPage.vue     # Lagerverwaltung (neu)
-src/pages/InventoryPage.vue            # Owner + Location in Modals
-src/pages/EquipmentPage.vue            # Owner + Location in Modals
-src/pages/SettingsPage.vue             # Sync UI (Seed Data entfernt)
-src/pages/DashboardPage.vue            # Search, Image Thumbnails
-src/features/sync-data/               # Supabase Sync Service (StorageLocations, Auto-Sync)
+src/pages/DashboardPage.vue            # Badge-Filter, Personen-Badges auf Karten
+src/pages/ProjectDetailPage.vue        # Participants, Responsible, Location, Auto-Add
+src/pages/ProjectNewPage.vue           # Participants, Responsible, Location, Auto-Add
+src/pages/StorageLocationsPage.vue     # Lagerverwaltung + Besitzer-Filter
+src/pages/InventoryPage.vue            # Lager + Besitzer Filter-Badges, ComboInput
+src/pages/EquipmentPage.vue            # Lager + Besitzer Filter-Badges, ComboInput
+src/pages/SettingsPage.vue             # Person Management, PWA-Hint Capacitor-Check
+src/features/sync-data/               # Supabase Sync (participants, responsible)
+src/shared/ui/BaseComboInput.vue       # Dropdown + Freitext Input (neu)
 src/shared/ui/BaseNumberStepper.vue    # +/- Stepper Component
 src/shared/ui/BaseSelect.vue           # Optgroup Support
+src/shared/lib/useKnownPersons.ts      # Personen-Composable (neu)
 src/shared/lib/imageUtils.ts           # Image Compression Utility
 src/shared/api/db.ts                   # Dexie DB v3 + StorageLocations
 src/shared/api/supabase.ts            # Supabase Client
-supabase-schema.sql                    # DB Schema (inkl. storage_locations)
+supabase-schema.sql                    # DB Schema (participants, responsible)
 capacitor.config.ts                    # Capacitor Konfiguration
 android/                               # Android-Projekt (Capacitor)
 .env                                   # Supabase Credentials (nicht im Repo)

@@ -16,9 +16,10 @@ import { PROJECT_STATUS_LABELS } from '@entities/project/model/types'
 import type { Task } from '@entities/task/model/types'
 import {
   BaseButton, BaseCard, BaseBadge, BaseProgress, BaseModal,
-  BaseInput, BaseTextarea, BaseCheckbox, BaseEmptyState, BaseSelect, BaseNumberStepper
+  BaseInput, BaseTextarea, BaseCheckbox, BaseEmptyState, BaseSelect, BaseNumberStepper, BaseComboInput
 } from '@shared/ui'
 import { compressImage } from '@shared/lib/imageUtils'
+import { useKnownPersons } from '@shared/lib/useKnownPersons'
 
 const route = useRoute()
 const router = useRouter()
@@ -27,6 +28,7 @@ const taskStore = useTaskStore()
 const materialStore = useMaterialStore()
 const equipmentStore = useEquipmentStore()
 const locationStore = useStorageLocationStore()
+const { knownPersons } = useKnownPersons()
 
 const projectId = computed(() => route.params.id as string)
 const project = computed(() => projectStore.projectById(projectId.value))
@@ -79,6 +81,30 @@ const locationOptions = computed(() =>
 function getLocationName(locationId?: string): string | undefined {
   if (!locationId) return undefined
   return locationStore.locationById(locationId)?.name
+}
+
+// Participant management
+const newDetailParticipant = ref('')
+
+const detailParticipantSuggestions = computed(() =>
+  knownPersons.value.filter(p => !(project.value?.participants || []).includes(p))
+)
+
+function addDetailParticipant() {
+  const name = newDetailParticipant.value.trim()
+  if (!name || !project.value) return
+  const current = project.value.participants || []
+  if (!current.includes(name)) {
+    projectStore.updateProject(projectId.value, { participants: [...current, name] })
+  }
+  newDetailParticipant.value = ''
+}
+
+function removeDetailParticipant(index: number) {
+  if (!project.value) return
+  const current = [...(project.value.participants || [])]
+  current.splice(index, 1)
+  projectStore.updateProject(projectId.value, { participants: current })
 }
 
 // Edit requirement
@@ -573,6 +599,53 @@ async function removeSketch() {
             empty-label="Kein Lagerort"
             @update:model-value="(val: string) => projectStore.updateProject(projectId, { storageLocationId: val || undefined })"
           />
+        </div>
+
+        <!-- Responsible -->
+        <div class="mb-4">
+          <BaseComboInput
+            :model-value="project.responsible || ''"
+            :suggestions="knownPersons"
+            label="Idee / Verantwortlich"
+            placeholder="z.B. Moritz"
+            @update:model-value="(val: string) => projectStore.updateProject(projectId, { responsible: val.trim() || undefined })"
+          />
+        </div>
+
+        <!-- Participants -->
+        <div class="mb-4">
+          <label class="text-sm font-medium text-earth-200 mb-2 block">Beteiligte</label>
+          <div v-if="project.participants && project.participants.length > 0" class="flex flex-wrap gap-2 mb-2">
+            <span
+              v-for="(person, i) in project.participants"
+              :key="i"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-forest-900/40 text-forest-300 text-sm border border-forest-700/40"
+            >
+              {{ person }}
+              <button
+                class="text-forest-500 hover:text-red-400 transition-colors"
+                @click="removeDetailParticipant(i)"
+              >
+                <X class="w-3.5 h-3.5" />
+              </button>
+            </span>
+          </div>
+          <div class="flex gap-2">
+            <div class="flex-1">
+              <BaseComboInput
+                v-model="newDetailParticipant"
+                :suggestions="detailParticipantSuggestions"
+                placeholder="Name eingeben..."
+                @enter="addDetailParticipant"
+              />
+            </div>
+            <BaseButton
+              :disabled="!newDetailParticipant.trim()"
+              @click="addDetailParticipant"
+            >
+              <Plus class="w-5 h-5" />
+            </BaseButton>
+          </div>
         </div>
 
         <!-- Status selector - aktive Phase deutlich hervorgehoben -->
@@ -1164,8 +1237,9 @@ async function removeSketch() {
           empty-label="Keine Einheit"
         />
 
-        <BaseInput
+        <BaseComboInput
           v-model="newItem.owner"
+          :suggestions="knownPersons"
           label="Eigentümer (optional)"
           placeholder="z.B. Moritz, Tim"
         />

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Building2, Compass, Hammer, FolderPlus, Filter, Trees, Search } from 'lucide-vue-next'
+import { Plus, Building2, Compass, Hammer, FolderPlus, Trees, Search } from 'lucide-vue-next'
 import { useProjectStore } from '@entities/project/model/store'
 import { useTaskStore } from '@entities/task/model/store'
 import type { ProjectStatus } from '@entities/project/model/types'
@@ -15,8 +15,20 @@ const taskStore = useTaskStore()
 // Filters
 const selectedCategory = ref<string | 'all'>('all')
 const selectedStatus = ref<ProjectStatus | 'all'>('all')
-const showFilters = ref(false)
+const selectedParticipant = ref<string | 'all'>('all')
 const searchQuery = ref('')
+
+// All unique participants across projects
+const allParticipants = computed(() => {
+  const names = new Set<string>()
+  for (const p of projectStore.projects) {
+    if (p.responsible) names.add(p.responsible)
+    if (p.participants) {
+      for (const name of p.participants) names.add(name)
+    }
+  }
+  return [...names].sort()
+})
 
 const categoryIcons: Record<string, typeof Building2> = {
   construction: Building2,
@@ -41,17 +53,23 @@ const filteredProjects = computed(() => {
     if (selectedStatus.value !== 'all' && project.status !== selectedStatus.value) {
       return false
     }
+    if (selectedParticipant.value !== 'all') {
+      const persons = [...(project.participants || [])]
+      if (project.responsible) persons.push(project.responsible)
+      if (!persons.includes(selectedParticipant.value)) return false
+    }
     return true
   })
 })
 
 const hasFilters = computed(() => {
-  return selectedCategory.value !== 'all' || selectedStatus.value !== 'all'
+  return selectedCategory.value !== 'all' || selectedStatus.value !== 'all' || selectedParticipant.value !== 'all'
 })
 
 function clearFilters() {
   selectedCategory.value = 'all'
   selectedStatus.value = 'all'
+  selectedParticipant.value = 'all'
 }
 
 function goToProject(id: string) {
@@ -88,118 +106,96 @@ function getCategoryName(project: { category: string; customCategoryName?: strin
           {{ projectStore.projects.length }} Projekt{{ projectStore.projects.length !== 1 ? 'e' : '' }}
         </p>
       </div>
-      <div class="flex items-center gap-2">
-        <BaseButton
-          variant="ghost"
-          size="sm"
-          :class="{ 'text-forest-400': hasFilters }"
-          @click="showFilters = !showFilters"
-        >
-          <Filter class="w-5 h-5" />
-        </BaseButton>
-        <BaseButton @click="createProject">
-          <Plus class="w-5 h-5" />
-          Neu
-        </BaseButton>
-      </div>
+      <BaseButton @click="createProject">
+        <Plus class="w-5 h-5" />
+        Neu
+      </BaseButton>
     </header>
 
-    <!-- Search -->
-    <div class="relative mb-4">
-      <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-earth-500" />
-      <input
-        v-model="searchQuery"
-        type="search"
-        placeholder="Projekt suchen..."
-        class="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-deep-100 bg-deep-300 text-earth-100 placeholder-earth-500 focus:outline-none focus:border-forest-500 transition-colors"
-      >
+    <!-- Search & filters (sticky) -->
+    <div class="sticky top-0 z-30 bg-deep-200 pb-3 -mx-4 px-4 pt-1 space-y-2">
+      <div class="relative">
+        <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-earth-500" />
+        <input
+          v-model="searchQuery"
+          type="search"
+          placeholder="Projekt suchen..."
+          class="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-deep-100 bg-deep-300 text-earth-100 placeholder-earth-500 focus:outline-none focus:border-forest-500 transition-colors"
+        >
+      </div>
+
+      <!-- Participant filter badges -->
+      <div v-if="allParticipants.length > 0" class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        <button
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedParticipant === 'all'
+            ? 'bg-amber-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedParticipant = 'all'"
+        >
+          Alle
+        </button>
+        <button
+          v-for="person in allParticipants"
+          :key="person"
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedParticipant === person
+            ? 'bg-amber-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedParticipant = selectedParticipant === person ? 'all' : person"
+        >
+          {{ person }}
+        </button>
+      </div>
+
+      <!-- Status filter badges -->
+      <div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        <button
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedStatus === 'all'
+            ? 'bg-forest-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedStatus = 'all'"
+        >
+          Alle Status
+        </button>
+        <button
+          v-for="(label, key) in PROJECT_STATUS_LABELS"
+          :key="key"
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedStatus === key
+            ? 'bg-forest-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedStatus = selectedStatus === key ? 'all' : key"
+        >
+          {{ label }}
+        </button>
+      </div>
+
+      <!-- Category filter badges -->
+      <div v-if="Object.keys(projectStore.allCategories).length > 1" class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        <button
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedCategory === 'all'
+            ? 'bg-forest-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedCategory = 'all'"
+        >
+          Alle Kategorien
+        </button>
+        <button
+          v-for="(label, key) in projectStore.allCategories"
+          :key="key"
+          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="selectedCategory === key
+            ? 'bg-forest-600 text-white'
+            : 'bg-deep-300 text-earth-400 border border-deep-100'"
+          @click="selectedCategory = selectedCategory === key ? 'all' : key"
+        >
+          {{ label }}
+        </button>
+      </div>
     </div>
-
-    <!-- Filters -->
-    <Transition
-      enter-active-class="duration-200 ease-out"
-      enter-from-class="opacity-0 -translate-y-2"
-      enter-to-class="opacity-100 translate-y-0"
-      leave-active-class="duration-150 ease-in"
-      leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 -translate-y-2"
-    >
-      <BaseCard v-if="showFilters" class="mb-4">
-        <div class="space-y-3">
-          <!-- Category filter -->
-          <div>
-            <p class="text-sm font-medium text-earth-300 mb-2">Kategorie</p>
-            <div class="flex flex-wrap gap-2">
-              <button
-                :class="[
-                  'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
-                  selectedCategory === 'all'
-                    ? 'bg-forest-600 text-white'
-                    : 'bg-deep-200 text-earth-300 border border-deep-50/30'
-                ]"
-                @click="selectedCategory = 'all'"
-              >
-                Alle
-              </button>
-              <button
-                v-for="(label, key) in projectStore.allCategories"
-                :key="key"
-                :class="[
-                  'px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5',
-                  selectedCategory === key
-                    ? 'bg-forest-600 text-white'
-                    : 'bg-deep-200 text-earth-300 border border-deep-50/30'
-                ]"
-                @click="selectedCategory = key"
-              >
-                <component :is="getCategoryIcon(key)" class="w-4 h-4" />
-                {{ label }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Status filter -->
-          <div>
-            <p class="text-sm font-medium text-earth-300 mb-2">Status</p>
-            <div class="flex flex-wrap gap-2">
-              <button
-                :class="[
-                  'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
-                  selectedStatus === 'all'
-                    ? 'bg-forest-600 text-white'
-                    : 'bg-deep-200 text-earth-300 border border-deep-50/30'
-                ]"
-                @click="selectedStatus = 'all'"
-              >
-                Alle
-              </button>
-              <button
-                v-for="(label, key) in PROJECT_STATUS_LABELS"
-                :key="key"
-                :class="[
-                  'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
-                  selectedStatus === key
-                    ? 'bg-forest-600 text-white'
-                    : 'bg-deep-200 text-earth-300 border border-deep-50/30'
-                ]"
-                @click="selectedStatus = key"
-              >
-                {{ label }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Clear filters -->
-          <button
-            v-if="hasFilters"
-            class="text-sm text-forest-400 hover:underline"
-            @click="clearFilters"
-          >
-            Filter zurücksetzen
-          </button>
-        </div>
-      </BaseCard>
-    </Transition>
 
     <!-- Project list -->
     <div v-if="filteredProjects.length > 0" class="space-y-3">
@@ -251,6 +247,23 @@ function getCategoryName(project: { category: string; customCategoryName?: strin
               {{ project.description || 'Keine Beschreibung' }}
             </p>
 
+            <!-- Participants & responsible -->
+            <div v-if="(project.participants && project.participants.length > 0) || project.responsible" class="flex flex-wrap gap-1 mb-2">
+              <span
+                v-if="project.responsible"
+                class="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-900/30 text-amber-400 text-[10px] font-medium border border-amber-700/30"
+              >
+                {{ project.responsible }}
+              </span>
+              <span
+                v-for="person in (project.participants || []).filter(p => p !== project.responsible)"
+                :key="person"
+                class="inline-flex items-center px-2 py-0.5 rounded-full bg-forest-900/30 text-forest-400 text-[10px] font-medium border border-forest-700/30"
+              >
+                {{ person }}
+              </span>
+            </div>
+
             <!-- Progress -->
             <div class="flex items-center gap-2">
               <BaseProgress
@@ -286,7 +299,7 @@ function getCategoryName(project: { category: string; customCategoryName?: strin
     <!-- No results -->
     <BaseEmptyState
       v-else
-      :icon="Filter"
+      :icon="Search"
       title="Keine Ergebnisse"
       description="Keine Projekte entsprechen den ausgewählten Filtern."
     >

@@ -9,6 +9,8 @@ export interface Project {
   category: ProjectCategory
   customCategoryName?: string
   storageLocationId?: string
+  participants?: string[]
+  responsible?: string
   imageUrl?: string
   sketchUrl?: string
   imagePlaceholder: string
@@ -26,6 +28,8 @@ export interface CreateProjectInput {
   category: ProjectCategory
   customCategoryName?: string
   storageLocationId?: string
+  participants?: string[]
+  responsible?: string
   notes?: string
   imageUrl?: string
   sketchUrl?: string
@@ -37,6 +41,8 @@ export interface UpdateProjectInput {
   category?: ProjectCategory
   customCategoryName?: string
   storageLocationId?: string
+  participants?: string[]
+  responsible?: string
   status?: ProjectStatus
   notes?: string
   imageUrl?: string
