@@ -5,8 +5,8 @@
 <h1 align="center">Nature Boyz - Bushcraft Planer</h1>
 
 <p align="center">
-  Mobile-first App zur gemeinsamen Planung von Bushcraft-Projekten.<br/>
-  Offline-first mit Cloud-Sync fuer die ganze Gruppe.
+  A mobile-first app for collaboratively planning bushcraft projects with friends.<br/>
+  Offline-first with cloud sync to keep everyone on the same page.
 </p>
 
 <p align="center">
@@ -17,94 +17,108 @@
 
 ---
 
-## Was ist das?
+## About
 
-Der **Bushcraft Planer** ist eine App fuer eine Gruppe von Freunden ("Nature Boyz"), die gemeinsam Bushcraft-Projekte planen und durchfuehren. Die App hilft bei der Verwaltung von:
+The **Bushcraft Planer** is built for a group of friends ("Nature Boyz") who plan and execute bushcraft projects together in the woods. The app manages:
 
-- **Projekten** - Bauprojekte, Erkundungen, Werkzeuge & eigene Kategorien
-- **Materialien** - Stoecke, Seile, Steine, Lehm und alles was die Natur hergibt
-- **Ausruestung** - Messer, Aexte, Tarps, Fernglas und mehr
-- **Lagerorten** - Wo liegt was im Wald?
-- **Personen** - Wer ist wofuer zustaendig?
+- **Projects** - Construction, exploration, tools & custom categories
+- **Materials** - Sticks, rope, stones, clay and everything nature provides
+- **Equipment** - Knives, axes, tarps, binoculars and more
+- **Storage locations** - Track where everything is stored in the forest
+- **People** - Who owns what and who is responsible for which project
 
-Alles wird lokal auf dem Geraet gespeichert und optional ueber die Cloud synchronisiert, damit alle auf dem gleichen Stand sind.
+Everything is stored locally on-device and optionally synced via the cloud so the whole group stays up to date.
 
 ## Features
 
-### Projektverwaltung
-- Projekte mit Kategorien, Bildern, Skizzen und Notizen
-- Aufgaben mit Dauer und Mannstaerke
-- Material- und Ausruestungsbedarf pro Projekt
-- Beteiligte und Verantwortliche zuweisen
-- Status-Tracking: Geplant > In Bearbeitung > Abgeschlossen
+### Project Management
+- Create projects with categories, photos, sketches and notes
+- Plan tasks with estimated duration and required manpower
+- Assign material and equipment requirements per project
+- Add participants and a responsible person
+- Track status: Planned > In Progress > Completed
+- Custom categories that sync across all devices
 
-### Material- & Ausruestungslager
-- Bestandsverwaltung mit Einheiten (Stueck, Meter, kg, Liter...)
-- Spezifikationen (z.B. "Stock, 2m, gerade")
-- Besitzer und Lagerort zuweisen
-- Automatische Bedarfsberechnung aus Projekten
+### Material & Equipment Inventory
+- Stock management with categorized units (pieces, meters, kg, liters...)
+- Specifications for variants (e.g. "stick, 2m, straight")
+- Assign an owner and storage location to each item
+- Automatic demand calculation from project requirements
+- Detail view showing all projects an item is assigned to
 
-### Lagerorte
-- Orte im Wald verwalten (z.B. "Hippie-Wald", "Geheimplatz")
-- Material und Ausruestung Lagern zuweisen
-- Uebersicht: was liegt wo?
+### Storage Locations
+- Manage locations in the forest (e.g. "Hippie Woods", "Secret Spot")
+- Assign materials and equipment to locations
+- Overview of what's stored where
+- Link projects to a location
 
-### Sync & Zusammenarbeit
-- Offline-first: funktioniert komplett ohne Internet
-- Automatischer Sync beim App-Start
-- Manueller Sync per Klick
-- Alle koennen gleichzeitig arbeiten
-- Last-write-wins Konfliktloesung
+### Sync & Collaboration
+- **Offline-first**: Works completely without internet
+- **Auto-sync** on app startup
+- **Manual sync** with one tap on the status bar
+- Everyone can work simultaneously on different items
+- Last-write-wins conflict resolution
+- Sync status indicator in the header (color-coded freshness)
+- Data overview: see how many projects, materials and equipment are synced
 
-### Weitere Features
-- Dark Theme mit Wald-Farbpalette
-- Bildkompression fuer Projektfotos
-- Filter auf allen Seiten (Lager, Besitzer, Status, Kategorie)
-- Personen verwalten (anlegen, umbenennen, entfernen)
-- Intro-Screen mit AI-generiertem Song
-- Android Hardware-Back-Button Support
+### Filtering & Search
+- Filter badges on every page (location, owner, status, category, participant)
+- Horizontally scrollable, toggleable filter rows
+- Search bars on project dashboard and inventory pages
+
+### Person Management
+- Create, rename and delete persons across the entire app
+- Autocomplete suggestions from all known names (owners, participants, assignees)
+- Selecting a suggestion immediately adds the person (no extra confirmation needed)
+
+### More
+- Dark theme with a forest-inspired color palette extracted from the logo
+- Image compression for project photos (max 1600px, 85% quality)
+- Splash screen with AI-generated intro song
+- Android hardware back button support
+- PWA installable on any device
 
 ## Tech Stack
 
-| Bereich | Technologie |
-|---------|-------------|
+| Layer | Technology |
+|-------|-----------|
 | Frontend | Vue 3 (Composition API, `<script setup>`) + TypeScript |
 | Build | Vite 7 |
 | State | Pinia 3 |
 | Routing | Vue Router 5 |
 | Styling | Tailwind CSS v4 |
-| Lokale DB | Dexie.js 4 (IndexedDB) |
-| Backend | Supabase (PostgreSQL) |
+| Local DB | Dexie.js 4 (IndexedDB wrapper) |
+| Backend | Supabase (PostgreSQL, no auth, shared data) |
 | Native | Capacitor 8 (Android) |
 | Icons | Lucide Vue Next |
 | Utilities | VueUse |
 | Testing | Vitest + happy-dom |
 
-## Architektur
+## Architecture
 
-Feature-Sliced Design:
+The project follows [Feature-Sliced Design](https://feature-sliced.design/):
 
 ```
 src/
-  app/              App Shell, Navigation, Router, Splash Screen
-  entities/         Business-Logik
-    project/          Projekte (types, store)
-    task/             Aufgaben
-    material/         Materialien
-    equipment/        Ausruestung
-    storage-location/ Lagerorte
-  features/         Sync mit Supabase
-  pages/            Seiten-Komponenten
+  app/                  App shell, navigation, router, splash screen
+  entities/             Business logic (types + Pinia stores with Dexie persistence)
+    project/              Projects
+    task/                 Tasks
+    material/             Materials
+    equipment/            Equipment
+    storage-location/     Storage locations
+  features/             Supabase sync service (bidirectional, auto + manual)
+  pages/                Page components (one per route)
   shared/
-    ui/             Wiederverwendbare Base-Komponenten
-    api/            Dexie DB, Supabase Client
-    lib/            Composables, Helpers
-    config/         Umgebungsvariablen
+    ui/                 Reusable base components (Button, Card, Input, Modal, ...)
+    api/                Dexie DB setup, Supabase client
+    lib/                Composables & helpers (image utils, known persons, ...)
+    config/             Environment variables
 ```
 
-## Installation
+## Getting Started
 
-### Voraussetzungen
+### Prerequisites
 
 - Node.js 18+
 - npm 9+
@@ -118,13 +132,13 @@ npm install
 npm run dev
 ```
 
-### Mit Netzwerkzugriff (Handy-Test im gleichen WLAN)
+### Mobile testing (same WiFi)
 
 ```bash
 npm run dev -- --host
 ```
 
-### Production Build
+### Production build
 
 ```bash
 npm run build
@@ -133,43 +147,54 @@ npm run build
 ### Android APK
 
 ```bash
-npm run cap:sync    # Web-Build + Capacitor Sync
-npm run cap:run     # Auf Emulator/Geraet starten
+npm run cap:sync    # Build + sync web assets to Android
+npm run cap:run     # Run on emulator or connected device
 ```
 
-## Supabase (optional)
+The debug APK is generated at `android/app/build/outputs/apk/debug/app-debug.apk`.
 
-Fuer Cloud-Sync eine `.env` Datei im Projektroot anlegen:
+## Supabase Setup (optional)
+
+The app works fully offline without Supabase. For cloud sync:
+
+1. Create a free [Supabase](https://supabase.com) project
+2. Create a `.env` file in the project root:
 
 ```
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-Datenbank-Schema einrichten: siehe `supabase-schema.sql`
+3. Run the database schema from `supabase-schema.sql`
 
-## Navigation
+The sync is bidirectional with last-write-wins conflict resolution. No authentication is used - all data is shared among the group.
 
-| Tab | Beschreibung |
-|-----|-------------|
-| Projekte | Dashboard mit allen Projekten, Filter nach Status/Kategorie/Beteiligte |
-| Material | Materiallager mit Bestandsverwaltung |
-| Ausruestung | Ausruestungslager |
-| Lagerorte | Lagerverwaltung |
-| Settings | Sync, Personen, Einstellungen |
+## App Navigation
+
+| Tab | Description |
+|-----|------------|
+| Projects | Dashboard with all projects, filterable by status, category & participants |
+| Materials | Material inventory with stock management |
+| Equipment | Equipment inventory |
+| Locations | Storage location management |
+| Settings | Sync status & info, person management, preferences |
 
 ## PWA Installation
 
-Die App kann auch im Browser als PWA installiert werden:
+The app can also be installed as a Progressive Web App:
 
-1. App im Browser oeffnen
-2. "Zur Startseite hinzufuegen" oder Install-Symbol klicken
-3. Die App ist nun offline verfuegbar
+1. Open the app in your browser
+2. Click "Add to Home Screen" or the install icon
+3. The app now works offline
+
+<!-- ## Screenshots
+
+_Coming with v1.0_ -->
 
 ## Credits
 
-Entwickelt von **Claude & Moritz**
+Built by **Claude & Moritz**
 
-## Lizenz
+## License
 
 MIT
