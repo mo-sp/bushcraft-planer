@@ -51,6 +51,23 @@ export const useMaterialStore = defineStore('materials', () => {
     return materialWithStock.value.filter(m => m.isLow)
   })
 
+  const materialsByLocation = computed(() => {
+    return (locationId: string) =>
+      materials.value.filter(m => m.storageLocationId === locationId)
+  })
+
+  const materialsByOwner = computed(() => {
+    return (owner: string) =>
+      materials.value.filter(m => m.owner === owner)
+  })
+
+  const uniqueOwners = computed(() => {
+    const owners = materials.value
+      .map(m => m.owner)
+      .filter((o): o is string => !!o)
+    return [...new Set(owners)].sort()
+  })
+
   // Actions
   async function loadMaterials(): Promise<void> {
     loading.value = true
@@ -75,6 +92,8 @@ export const useMaterialStore = defineStore('materials', () => {
       unit: input.unit,
       currentStock: input.currentStock ?? 0,
       icon: input.icon,
+      owner: input.owner,
+      storageLocationId: input.storageLocationId,
       createdAt: now,
       updatedAt: now
     }
@@ -222,6 +241,9 @@ export const useMaterialStore = defineStore('materials', () => {
     requirementsByMaterial,
     materialWithStock,
     lowStockMaterials,
+    materialsByLocation,
+    materialsByOwner,
+    uniqueOwners,
     // Actions
     loadMaterials,
     createMaterial,

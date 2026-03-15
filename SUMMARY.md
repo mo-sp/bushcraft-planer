@@ -297,12 +297,64 @@ cc01e56 feat: persist custom categories from synced projects to localStorage
 
 ---
 
+## Session 9 (2026-03-15)
+
+### 39. Storage Locations (Lagerorte) Entity
+- New `StorageLocation` entity with full CRUD (types, Pinia store, Dexie table)
+- Dexie DB upgraded to v3 with `storageLocations` table + indexes
+- Default locations: "Hippie-Wald", "Geheimplatz", "Moorwald-Lager"
+- 5th navigation tab "Lagerorte" with MapPin icon
+- `StorageLocationsPage.vue`: search, create/edit/delete modals, detail view showing assigned items
+- Delete cascade: clears `storageLocationId` on orphaned materials/equipment
+
+### 40. Owner & Storage Location on Items
+- `owner` and `storageLocationId` fields added to Material and Equipment types
+- Create/Edit modals in InventoryPage, EquipmentPage, ProjectDetailPage, ProjectNewPage updated
+- Owner (amber badge) and location (green badge) shown in list items and detail modals
+- Store getters: `materialsByLocation`, `equipmentByLocation`, `materialsByOwner`, `equipmentByOwner`, `uniqueOwners`
+
+### 41. Projects Linked to Storage Locations
+- Optional `storageLocationId` on Project type
+- Location dropdown in ProjectNewPage and ProjectDetailPage
+- Location badge displayed next to category in project info
+- Supabase schema: `storage_location_id` FK on projects table
+
+### 42. Auto-Add Items to Projects
+- Creating a new material/equipment from within a project automatically adds it as a requirement
+- ProjectDetailPage: creates requirement directly after item creation
+- ProjectNewPage: adds to selectedItems list and closes both modals
+
+### 43. Auto-Sync & Sync Status Bar
+- Auto-sync runs in background after local data loads on app start
+- Sync status bar in header with color-coded time-ago display (green=fresh, earth=ok, amber=stale)
+- Click to trigger manual sync, spinning icon during sync, "Offline" when disconnected
+- `useSync` composable: shared module-level state, `lastSyncedAt` persisted to localStorage
+- Reactive 30s timer for time-ago updates
+
+### 44. Settings Cleanup
+- Removed "Standarddaten laden" button (seed data no longer needed)
+- storageLocations included in clear/sync operations
+
+### 45. Supabase Schema Updated
+- New `storage_locations` table
+- `owner`, `storage_location_id` columns on materials and equipment
+- `storage_location_id` column on projects
+- Indexes for storage location lookups
+
+### Commits
+```
+(pending)
+```
+
+---
+
 ## Was noch zu tun ist (naechste Session)
 
 ### Fehlende Features
 1. **Drag & Drop** fuer Aufgaben-Reihenfolge
-2. **Auto-Sync** beim App-Start (aktuell nur manuell)
-3. **Sticky Search** in Material/Ausruestung (Suche scrollt noch nicht mit)
+2. **Sticky Search** in Material/Ausruestung (Suche scrollt noch nicht mit)
+3. **Sound Mute Option** fuer Intro-Song
+4. **Nature Sounds** als App-Hintergrundsound (optional)
 
 ### Polish
 1. Animationen verbessern
@@ -318,23 +370,27 @@ cc01e56 feat: persist custom categories from synced projects to localStorage
 
 ```
 src/style.css                          # Dark Theme Farben
-src/app/App.vue                        # Header mit Logo
-src/app/AppNavigation.vue              # Dark Nav
-src/entities/project/model/types.ts    # Neue Kategorien, notes Feld
+src/app/App.vue                        # Header, Sync Status Bar, Auto-Sync
+src/app/AppNavigation.vue              # 5 Tabs inkl. Lagerorte
+src/entities/project/model/types.ts    # Neue Kategorien, notes, storageLocationId
 src/entities/task/model/types.ts       # duration, manpower
-src/entities/material/model/types.ts   # unit optional, UNIT_GROUPS
-src/pages/ProjectDetailPage.vue        # Komplett ueberarbeitet
-src/pages/ProjectNewPage.vue           # Custom Category Modal, Image Upload, Task Planning
-src/pages/SettingsPage.vue             # Seed Data, Sync UI
+src/entities/material/model/types.ts   # unit optional, UNIT_GROUPS, owner, storageLocationId
+src/entities/equipment/model/types.ts  # owner, storageLocationId
+src/entities/storage-location/         # Neues Entity (types + store)
+src/pages/ProjectDetailPage.vue        # Komplett ueberarbeitet, Location, Auto-Add
+src/pages/ProjectNewPage.vue           # Custom Category, Image, Tasks, Location, Auto-Add
+src/pages/StorageLocationsPage.vue     # Lagerverwaltung (neu)
+src/pages/InventoryPage.vue            # Owner + Location in Modals
+src/pages/EquipmentPage.vue            # Owner + Location in Modals
+src/pages/SettingsPage.vue             # Sync UI (Seed Data entfernt)
 src/pages/DashboardPage.vue            # Search, Image Thumbnails
-src/features/sync-data/               # Supabase Sync Service
+src/features/sync-data/               # Supabase Sync Service (StorageLocations, Auto-Sync)
 src/shared/ui/BaseNumberStepper.vue    # +/- Stepper Component
 src/shared/ui/BaseSelect.vue           # Optgroup Support
 src/shared/lib/imageUtils.ts           # Image Compression Utility
-src/shared/lib/seedData.ts            # Default Materials & Equipment
-src/shared/api/db.ts                   # Dexie DB + UUID Fallback
+src/shared/api/db.ts                   # Dexie DB v3 + StorageLocations
 src/shared/api/supabase.ts            # Supabase Client
-supabase-schema.sql                    # DB Schema fuer Supabase
+supabase-schema.sql                    # DB Schema (inkl. storage_locations)
 capacitor.config.ts                    # Capacitor Konfiguration
 android/                               # Android-Projekt (Capacitor)
 .env                                   # Supabase Credentials (nicht im Repo)

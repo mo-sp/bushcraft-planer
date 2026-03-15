@@ -34,6 +34,12 @@ const router = createRouter({
       meta: { title: 'Ausrüstung' }
     },
     {
+      path: '/storage',
+      name: 'storage',
+      component: () => import('@pages/StorageLocationsPage.vue'),
+      meta: { title: 'Lagerorte' }
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: () => import('@pages/SettingsPage.vue'),

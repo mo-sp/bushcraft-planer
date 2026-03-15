@@ -7,6 +7,7 @@ import { getRandomPlaceholderColor } from '@entities/project/model/types'
 import type { Task } from '@entities/task/model/types'
 import type { Material, MaterialRequirement } from '@entities/material/model/types'
 import type { Equipment, EquipmentRequirement } from '@entities/equipment/model/types'
+import type { StorageLocation } from '@entities/storage-location/model/types'
 
 export interface SyncResult {
   pushed: number
@@ -40,6 +41,7 @@ function projectToRemote(p: Project) {
     description: p.description,
     category: p.category,
     custom_category_name: p.customCategoryName || null,
+    storage_location_id: p.storageLocationId || null,
     status: p.status,
     notes: p.notes || null,
     image_url: p.imageUrl || null,
@@ -56,6 +58,7 @@ function projectFromRemote(r: Record<string, any>): Project {
     description: r.description || '',
     category: r.category,
     customCategoryName: r.custom_category_name || undefined,
+    storageLocationId: r.storage_location_id || undefined,
     status: r.status || 'planned',
     notes: r.notes || '',
     imageUrl: r.image_url || undefined,
@@ -97,6 +100,28 @@ function taskFromRemote(r: Record<string, any>): Task {
   }
 }
 
+function storageLocationToRemote(l: StorageLocation) {
+  return {
+    id: l.id,
+    name: l.name,
+    description: l.description || null,
+    icon: l.icon || null,
+    created_at: toISO(l.createdAt),
+    updated_at: toISO(l.updatedAt),
+  }
+}
+
+function storageLocationFromRemote(r: Record<string, any>): StorageLocation {
+  return {
+    id: r.id,
+    name: r.name,
+    description: r.description || undefined,
+    icon: r.icon || undefined,
+    createdAt: toDate(r.created_at),
+    updatedAt: toDate(r.updated_at),
+  }
+}
+
 function materialToRemote(m: Material) {
   return {
     id: m.id,
@@ -105,6 +130,8 @@ function materialToRemote(m: Material) {
     unit: m.unit || null,
     current_stock: m.currentStock,
     icon: m.icon || null,
+    owner: m.owner || null,
+    storage_location_id: m.storageLocationId || null,
     created_at: toISO(m.createdAt),
     updated_at: toISO(m.updatedAt),
   }
@@ -118,6 +145,8 @@ function materialFromRemote(r: Record<string, any>): Material {
     unit: r.unit || undefined,
     currentStock: r.current_stock ?? 0,
     icon: r.icon || undefined,
+    owner: r.owner || undefined,
+    storageLocationId: r.storage_location_id || undefined,
     createdAt: toDate(r.created_at),
     updatedAt: toDate(r.updated_at),
   }
@@ -151,6 +180,8 @@ function equipmentToRemote(e: Equipment) {
     name: e.name,
     specifications: e.specifications || null,
     current_stock: e.currentStock,
+    owner: e.owner || null,
+    storage_location_id: e.storageLocationId || null,
     created_at: toISO(e.createdAt),
     updated_at: toISO(e.updatedAt),
   }
@@ -162,6 +193,8 @@ function equipmentFromRemote(r: Record<string, any>): Equipment {
     name: r.name,
     specifications: r.specifications || undefined,
     currentStock: r.current_stock ?? 0,
+    owner: r.owner || undefined,
+    storageLocationId: r.storage_location_id || undefined,
     createdAt: toDate(r.created_at),
     updatedAt: toDate(r.updated_at),
   }
@@ -200,6 +233,7 @@ interface TableSyncConfig<T> {
 
 // Sync order: base tables first, then dependent tables
 const TABLE_CONFIGS: TableSyncConfig<any>[] = [
+  { localTableName: 'storageLocations', remoteTableName: 'storage_locations', toRemote: storageLocationToRemote, fromRemote: storageLocationFromRemote },
   { localTableName: 'materials', remoteTableName: 'materials', toRemote: materialToRemote, fromRemote: materialFromRemote },
   { localTableName: 'equipment', remoteTableName: 'equipment', toRemote: equipmentToRemote, fromRemote: equipmentFromRemote },
   { localTableName: 'projects', remoteTableName: 'projects', toRemote: projectToRemote, fromRemote: projectFromRemote },
@@ -340,12 +374,22 @@ async function syncTable<T extends { id: string; updatedAt: Date }>(
 
 // --- Composable ---
 
+// Shared state across all useSync() instances
+const sharedSyncing = ref(false)
+const sharedLastSyncedAt = ref<Date | null>(
+  localStorage.getItem('lastSyncedAt')
+    ? new Date(localStorage.getItem('lastSyncedAt')!)
+    : null
+)
+const sharedSyncError = ref<string | null>(null)
+const sharedLastResult = ref<SyncResult | null>(null)
+
 export function useSync() {
   const isOnline = useOnline()
-  const isSyncing = ref(false)
-  const lastSyncedAt = ref<Date | null>(null)
-  const syncError = ref<string | null>(null)
-  const lastResult = ref<SyncResult | null>(null)
+  const isSyncing = sharedSyncing
+  const lastSyncedAt = sharedLastSyncedAt
+  const syncError = sharedSyncError
+  const lastResult = sharedLastResult
 
   async function fullSync(): Promise<SyncResult> {
     const result: SyncResult = { pushed: 0, pulled: 0, deleted: 0, errors: [] }
@@ -387,6 +431,7 @@ export function useSync() {
       }
 
       lastSyncedAt.value = new Date()
+      localStorage.setItem('lastSyncedAt', lastSyncedAt.value.toISOString())
       lastResult.value = result
 
       if (result.errors.length > 0) {

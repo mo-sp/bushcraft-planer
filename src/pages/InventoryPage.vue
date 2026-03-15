@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { Plus, Minus, Trash2, Warehouse, Search, Edit3 } from 'lucide-vue-next'
 import { useMaterialStore } from '@entities/material/model/store'
 import { useProjectStore } from '@entities/project/model/store'
+import { useStorageLocationStore } from '@entities/storage-location/model/store'
 import { UNIT_GROUPS } from '@entities/material/model/types'
 import type { Material } from '@entities/material/model/types'
 import {
@@ -11,6 +12,7 @@ import {
 
 const materialStore = useMaterialStore()
 const projectStore = useProjectStore()
+const locationStore = useStorageLocationStore()
 
 const searchQuery = ref('')
 const showAddMaterial = ref(false)
@@ -24,7 +26,9 @@ const newMaterial = ref({
   name: '',
   specifications: '',
   unit: '',
-  currentStock: 0
+  currentStock: 0,
+  owner: '',
+  storageLocationId: ''
 })
 
 // Edit material form
@@ -33,8 +37,14 @@ const editMaterial = ref({
   name: '',
   specifications: '',
   unit: '',
-  currentStock: 0
+  currentStock: 0,
+  owner: '',
+  storageLocationId: ''
 })
+
+const locationOptions = computed(() =>
+  locationStore.locations.map(l => ({ value: l.id, label: l.name }))
+)
 
 const filteredMaterials = computed(() => {
   const query = searchQuery.value.toLowerCase().trim()
@@ -66,12 +76,19 @@ function openDetail(material: Material & { totalRequired: number }) {
   showDetailModal.value = true
 }
 
+function getLocationName(locationId?: string): string | undefined {
+  if (!locationId) return undefined
+  return locationStore.locationById(locationId)?.name
+}
+
 function resetForm() {
   newMaterial.value = {
     name: '',
     specifications: '',
     unit: '',
-    currentStock: 0
+    currentStock: 0,
+    owner: '',
+    storageLocationId: ''
   }
 }
 
@@ -82,7 +99,9 @@ async function addMaterial() {
     name: newMaterial.value.name.trim(),
     specifications: newMaterial.value.specifications.trim() || undefined,
     unit: newMaterial.value.unit || undefined,
-    currentStock: newMaterial.value.currentStock || 0
+    currentStock: newMaterial.value.currentStock || 0,
+    owner: newMaterial.value.owner.trim() || undefined,
+    storageLocationId: newMaterial.value.storageLocationId || undefined
   })
 
   resetForm()
@@ -95,7 +114,9 @@ function startEditMaterial(material: Material & { totalRequired: number }) {
     name: material.name,
     specifications: material.specifications || '',
     unit: material.unit || '',
-    currentStock: material.currentStock
+    currentStock: material.currentStock,
+    owner: material.owner || '',
+    storageLocationId: material.storageLocationId || ''
   }
   showEditMaterial.value = true
 }
@@ -107,7 +128,9 @@ async function saveEditMaterial() {
     name: editMaterial.value.name.trim(),
     specifications: editMaterial.value.specifications.trim() || undefined,
     unit: editMaterial.value.unit || undefined,
-    currentStock: editMaterial.value.currentStock
+    currentStock: editMaterial.value.currentStock,
+    owner: editMaterial.value.owner.trim() || undefined,
+    storageLocationId: editMaterial.value.storageLocationId || undefined
   })
 
   showEditMaterial.value = false
@@ -170,9 +193,15 @@ async function deleteMaterial(id: string) {
                 ({{ material.specifications }})
               </span>
             </h3>
-            <p class="text-xs text-earth-400 mt-0.5">
-              {{ material.totalRequired > 0 ? `${material.totalRequired} benötigt` : 'Nicht zugewiesen' }}
-            </p>
+            <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+              <span v-if="material.owner" class="text-xs text-amber-400">{{ material.owner }}</span>
+              <span v-if="material.storageLocationId" class="text-xs text-forest-400">
+                {{ getLocationName(material.storageLocationId) }}
+              </span>
+              <span v-if="!material.owner && !material.storageLocationId" class="text-xs text-earth-400">
+                {{ material.totalRequired > 0 ? `${material.totalRequired} benötigt` : 'Nicht zugewiesen' }}
+              </span>
+            </div>
           </div>
 
           <!-- Stock controls -->
@@ -259,7 +288,7 @@ async function deleteMaterial(id: string) {
           <p class="text-earth-200">{{ detailMaterial.specifications }}</p>
         </div>
 
-        <div class="flex gap-6">
+        <div class="flex gap-6 flex-wrap">
           <div>
             <p class="text-xs text-earth-500 mb-1">Bestand</p>
             <p class="text-earth-200 font-medium">
@@ -271,6 +300,14 @@ async function deleteMaterial(id: string) {
             <p class="text-earth-200 font-medium">
               {{ detailMaterial.totalRequired }} {{ detailMaterial.unit || 'Stück' }}
             </p>
+          </div>
+          <div v-if="detailMaterial.owner">
+            <p class="text-xs text-earth-500 mb-1">Eigentümer</p>
+            <p class="text-amber-400 font-medium">{{ detailMaterial.owner }}</p>
+          </div>
+          <div v-if="detailMaterial.storageLocationId">
+            <p class="text-xs text-earth-500 mb-1">Lagerort</p>
+            <p class="text-forest-400 font-medium">{{ getLocationName(detailMaterial.storageLocationId) }}</p>
           </div>
         </div>
 
@@ -316,6 +353,19 @@ async function deleteMaterial(id: string) {
           label="Einheit (optional)"
           :groups="unitGroups"
           empty-label="Keine Einheit"
+        />
+
+        <BaseInput
+          v-model="newMaterial.owner"
+          label="Eigentümer (optional)"
+          placeholder="z.B. Moritz, Tim"
+        />
+
+        <BaseSelect
+          v-model="newMaterial.storageLocationId"
+          label="Lagerort (optional)"
+          :options="locationOptions"
+          empty-label="Kein Lagerort"
         />
 
         <BaseNumberStepper
@@ -368,6 +418,19 @@ async function deleteMaterial(id: string) {
           label="Einheit (optional)"
           :groups="unitGroups"
           empty-label="Keine Einheit"
+        />
+
+        <BaseInput
+          v-model="editMaterial.owner"
+          label="Eigentümer (optional)"
+          placeholder="z.B. Moritz, Tim"
+        />
+
+        <BaseSelect
+          v-model="editMaterial.storageLocationId"
+          label="Lagerort (optional)"
+          :options="locationOptions"
+          empty-label="Kein Lagerort"
         />
 
         <BaseNumberStepper

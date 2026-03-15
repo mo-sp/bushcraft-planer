@@ -3,13 +3,15 @@ import { ref, computed } from 'vue'
 import { Plus, Minus, Trash2, Backpack, Search, Edit3 } from 'lucide-vue-next'
 import { useEquipmentStore } from '@entities/equipment/model/store'
 import { useProjectStore } from '@entities/project/model/store'
+import { useStorageLocationStore } from '@entities/storage-location/model/store'
 import type { Equipment } from '@entities/equipment/model/types'
 import {
-  BaseButton, BaseCard, BaseInput, BaseModal, BaseEmptyState, BaseNumberStepper
+  BaseButton, BaseCard, BaseInput, BaseSelect, BaseModal, BaseEmptyState, BaseNumberStepper
 } from '@shared/ui'
 
 const equipmentStore = useEquipmentStore()
 const projectStore = useProjectStore()
+const locationStore = useStorageLocationStore()
 
 const searchQuery = ref('')
 const showAddEquipment = ref(false)
@@ -22,7 +24,9 @@ const detailEquipment = ref<(Equipment & { totalRequired: number }) | null>(null
 const newEquipment = ref({
   name: '',
   specifications: '',
-  currentStock: 0
+  currentStock: 0,
+  owner: '',
+  storageLocationId: ''
 })
 
 // Edit equipment form
@@ -30,8 +34,19 @@ const editingEquipmentId = ref('')
 const editEquipment = ref({
   name: '',
   specifications: '',
-  currentStock: 0
+  currentStock: 0,
+  owner: '',
+  storageLocationId: ''
 })
+
+const locationOptions = computed(() =>
+  locationStore.locations.map(l => ({ value: l.id, label: l.name }))
+)
+
+function getLocationName(locationId?: string): string | undefined {
+  if (!locationId) return undefined
+  return locationStore.locationById(locationId)?.name
+}
 
 const filteredEquipment = computed(() => {
   const query = searchQuery.value.toLowerCase().trim()
@@ -61,7 +76,9 @@ function resetForm() {
   newEquipment.value = {
     name: '',
     specifications: '',
-    currentStock: 0
+    currentStock: 0,
+    owner: '',
+    storageLocationId: ''
   }
 }
 
@@ -71,7 +88,9 @@ async function addEquipment() {
   await equipmentStore.createEquipment({
     name: newEquipment.value.name.trim(),
     specifications: newEquipment.value.specifications.trim() || undefined,
-    currentStock: newEquipment.value.currentStock || 0
+    currentStock: newEquipment.value.currentStock || 0,
+    owner: newEquipment.value.owner.trim() || undefined,
+    storageLocationId: newEquipment.value.storageLocationId || undefined
   })
 
   resetForm()
@@ -83,7 +102,9 @@ function startEditEquipment(item: Equipment & { totalRequired: number }) {
   editEquipment.value = {
     name: item.name,
     specifications: item.specifications || '',
-    currentStock: item.currentStock
+    currentStock: item.currentStock,
+    owner: item.owner || '',
+    storageLocationId: item.storageLocationId || ''
   }
   showEditEquipment.value = true
 }
@@ -94,7 +115,9 @@ async function saveEditEquipment() {
   await equipmentStore.updateEquipment(editingEquipmentId.value, {
     name: editEquipment.value.name.trim(),
     specifications: editEquipment.value.specifications.trim() || undefined,
-    currentStock: editEquipment.value.currentStock
+    currentStock: editEquipment.value.currentStock,
+    owner: editEquipment.value.owner.trim() || undefined,
+    storageLocationId: editEquipment.value.storageLocationId || undefined
   })
 
   showEditEquipment.value = false
@@ -157,9 +180,15 @@ async function deleteEquipment(id: string) {
                 ({{ item.specifications }})
               </span>
             </h3>
-            <p class="text-xs text-earth-400 mt-0.5">
-              {{ item.totalRequired > 0 ? `${item.totalRequired} benötigt` : 'Nicht zugewiesen' }}
-            </p>
+            <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+              <span v-if="item.owner" class="text-xs text-amber-400">{{ item.owner }}</span>
+              <span v-if="item.storageLocationId" class="text-xs text-forest-400">
+                {{ getLocationName(item.storageLocationId) }}
+              </span>
+              <span v-if="!item.owner && !item.storageLocationId" class="text-xs text-earth-400">
+                {{ item.totalRequired > 0 ? `${item.totalRequired} benötigt` : 'Nicht zugewiesen' }}
+              </span>
+            </div>
           </div>
 
           <!-- Stock controls -->
@@ -246,7 +275,7 @@ async function deleteEquipment(id: string) {
           <p class="text-earth-200">{{ detailEquipment.specifications }}</p>
         </div>
 
-        <div class="flex gap-6">
+        <div class="flex gap-6 flex-wrap">
           <div>
             <p class="text-xs text-earth-500 mb-1">Bestand</p>
             <p class="text-earth-200 font-medium">
@@ -258,6 +287,14 @@ async function deleteEquipment(id: string) {
             <p class="text-earth-200 font-medium">
               {{ detailEquipment.totalRequired }} Stück
             </p>
+          </div>
+          <div v-if="detailEquipment.owner">
+            <p class="text-xs text-earth-500 mb-1">Eigentümer</p>
+            <p class="text-amber-400 font-medium">{{ detailEquipment.owner }}</p>
+          </div>
+          <div v-if="detailEquipment.storageLocationId">
+            <p class="text-xs text-earth-500 mb-1">Lagerort</p>
+            <p class="text-forest-400 font-medium">{{ getLocationName(detailEquipment.storageLocationId) }}</p>
           </div>
         </div>
 
@@ -296,6 +333,19 @@ async function deleteEquipment(id: string) {
           v-model="newEquipment.specifications"
           label="Details (optional)"
           placeholder="z.B. 30L wasserdicht, 2-Personen"
+        />
+
+        <BaseInput
+          v-model="newEquipment.owner"
+          label="Eigentümer (optional)"
+          placeholder="z.B. Moritz, Tim"
+        />
+
+        <BaseSelect
+          v-model="newEquipment.storageLocationId"
+          label="Lagerort (optional)"
+          :options="locationOptions"
+          empty-label="Kein Lagerort"
         />
 
         <BaseNumberStepper
@@ -341,6 +391,19 @@ async function deleteEquipment(id: string) {
           v-model="editEquipment.specifications"
           label="Details (optional)"
           placeholder="z.B. 30L wasserdicht, 2-Personen"
+        />
+
+        <BaseInput
+          v-model="editEquipment.owner"
+          label="Eigentümer (optional)"
+          placeholder="z.B. Moritz, Tim"
+        />
+
+        <BaseSelect
+          v-model="editEquipment.storageLocationId"
+          label="Lagerort (optional)"
+          :options="locationOptions"
+          empty-label="Kein Lagerort"
         />
 
         <BaseNumberStepper

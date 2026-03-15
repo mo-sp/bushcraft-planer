@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { LayoutDashboard, Warehouse, Backpack, Settings } from 'lucide-vue-next'
+import { LayoutDashboard, Warehouse, Backpack, MapPin, Settings } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -10,6 +10,7 @@ const navItems = [
   { name: 'dashboard', label: 'Projekte', icon: LayoutDashboard, path: '/' },
   { name: 'inventory', label: 'Material', icon: Warehouse, path: '/inventory' },
   { name: 'equipment', label: 'Ausrüstung', icon: Backpack, path: '/equipment' },
+  { name: 'storage', label: 'Lagerorte', icon: MapPin, path: '/storage' },
   { name: 'settings', label: 'Settings', icon: Settings, path: '/settings' }
 ]
 
@@ -27,7 +28,7 @@ function navigate(path: string) {
         v-for="item in navItems"
         :key="item.name"
         :class="[
-          'flex flex-col items-center gap-1.5 py-4 px-5 min-w-[90px] transition-colors',
+          'flex flex-col items-center gap-1 py-3 px-2 min-w-0 flex-1 transition-colors',
           currentRoute === item.name
             ? 'text-forest-400'
             : 'text-earth-500 active:text-earth-400'
@@ -37,11 +38,11 @@ function navigate(path: string) {
         <component
           :is="item.icon"
           :class="[
-            'w-8 h-8 transition-transform',
+            'w-7 h-7 transition-transform',
             currentRoute === item.name ? 'scale-110' : ''
           ]"
         />
-        <span class="text-sm font-medium">{{ item.label }}</span>
+        <span class="text-xs font-medium truncate max-w-full">{{ item.label }}</span>
       </button>
     </div>
   </nav>

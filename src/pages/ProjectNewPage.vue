@@ -6,6 +6,7 @@ import { useProjectStore } from '@entities/project/model/store'
 import { useMaterialStore } from '@entities/material/model/store'
 import { useEquipmentStore } from '@entities/equipment/model/store'
 import { useTaskStore } from '@entities/task/model/store'
+import { useStorageLocationStore } from '@entities/storage-location/model/store'
 import { UNIT_GROUPS } from '@entities/material/model/types'
 import { BaseButton, BaseInput, BaseTextarea, BaseModal, BaseSelect, BaseCard, BaseNumberStepper } from '@shared/ui'
 
@@ -23,11 +24,17 @@ const projectStore = useProjectStore()
 const materialStore = useMaterialStore()
 const equipmentStore = useEquipmentStore()
 const taskStore = useTaskStore()
+const locationStore = useStorageLocationStore()
 
 const name = ref('')
 const description = ref('')
 const category = ref('construction')
 const customCategoryName = ref('')
+const storageLocationId = ref('')
+
+const locationOptions = computed(() =>
+  locationStore.locations.map(l => ({ value: l.id, label: l.name }))
+)
 const isSubmitting = ref(false)
 const showCustomCategoryModal = ref(false)
 const newCategoryName = ref('')
@@ -62,7 +69,9 @@ const newItem = ref({
   type: 'material' as ItemType,
   name: '',
   specifications: '',
-  unit: ''
+  unit: '',
+  owner: '',
+  storageLocationId: ''
 })
 
 const categoryIcons: Record<string, typeof Building2> = {
@@ -236,7 +245,7 @@ function confirmEdit() {
 }
 
 function openNewItemModal() {
-  newItem.value = { type: 'material', name: '', specifications: '', unit: '' }
+  newItem.value = { type: 'material', name: '', specifications: '', unit: '', owner: '', storageLocationId: storageLocationId.value }
   showNewItemModal.value = true
 }
 
@@ -248,25 +257,42 @@ async function createNewItem() {
       name: newItem.value.name.trim(),
       specifications: newItem.value.specifications.trim() || undefined,
       unit: newItem.value.unit || undefined,
+      owner: newItem.value.owner.trim() || undefined,
+      storageLocationId: newItem.value.storageLocationId || undefined,
       currentStock: 0
     })
 
     if (material) {
+      selectedItems.value.push({
+        type: 'material',
+        itemId: material.id,
+        name: material.name,
+        specifications: material.specifications,
+        amount: itemAmount.value || 1,
+        unit: material.unit
+      })
       showNewItemModal.value = false
-      selectedItemType.value = 'material'
-      selectedItemId.value = material.id
+      showItemModal.value = false
     }
   } else {
     const equipment = await equipmentStore.createEquipment({
       name: newItem.value.name.trim(),
       specifications: newItem.value.specifications.trim() || undefined,
+      owner: newItem.value.owner.trim() || undefined,
+      storageLocationId: newItem.value.storageLocationId || undefined,
       currentStock: 0
     })
 
     if (equipment) {
+      selectedItems.value.push({
+        type: 'equipment',
+        itemId: equipment.id,
+        name: equipment.name,
+        specifications: equipment.specifications,
+        amount: itemAmount.value || 1
+      })
       showNewItemModal.value = false
-      selectedItemType.value = 'equipment'
-      selectedItemId.value = equipment.id
+      showItemModal.value = false
     }
   }
 }
@@ -345,6 +371,7 @@ async function submit() {
       description: description.value.trim(),
       category: category.value,
       customCategoryName: customCategoryName.value || undefined,
+      storageLocationId: storageLocationId.value || undefined,
       imageUrl: projectImageUrl.value
     })
 
@@ -623,6 +650,14 @@ function goBack() {
         </div>
       </div>
 
+      <!-- Storage Location -->
+      <BaseSelect
+        v-model="storageLocationId"
+        label="Lagerort (optional)"
+        :options="locationOptions"
+        empty-label="Kein Lagerort"
+      />
+
       <!-- Submit -->
       <BaseButton
         type="submit"
@@ -841,6 +876,19 @@ function goBack() {
           label="Einheit (optional)"
           :groups="unitGroups"
           empty-label="Keine Einheit"
+        />
+
+        <BaseInput
+          v-model="newItem.owner"
+          label="Eigentümer (optional)"
+          placeholder="z.B. Moritz, Tim"
+        />
+
+        <BaseSelect
+          v-model="newItem.storageLocationId"
+          label="Lagerort (optional)"
+          :options="locationOptions"
+          empty-label="Kein Lagerort"
         />
       </form>
 

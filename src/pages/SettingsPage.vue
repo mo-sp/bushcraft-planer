@@ -2,14 +2,14 @@
 import { ref, computed } from 'vue'
 import { useOnline } from '@vueuse/core'
 import {
-  Cloud, CloudOff, Database, Trash2, Info, PackagePlus, RefreshCw
+  Cloud, CloudOff, Database, Trash2, Info, RefreshCw
 } from 'lucide-vue-next'
 import { db } from '@shared/api/db'
 import { isSupabaseConfigured } from '@shared/api/supabase'
 import { useProjectStore } from '@entities/project/model/store'
 import { useMaterialStore } from '@entities/material/model/store'
 import { useEquipmentStore } from '@entities/equipment/model/store'
-import { SEED_MATERIALS, SEED_EQUIPMENT } from '@shared/lib/seedData'
+import { useStorageLocationStore } from '@entities/storage-location/model/store'
 import { useSync } from '@features/sync-data'
 import { BaseCard, BaseButton, BaseModal } from '@shared/ui'
 
@@ -17,10 +17,9 @@ const isOnline = useOnline()
 const projectStore = useProjectStore()
 const materialStore = useMaterialStore()
 const equipmentStore = useEquipmentStore()
+const storageLocationStore = useStorageLocationStore()
 const showClearConfirm = ref(false)
 const isClearing = ref(false)
-const isSeeding = ref(false)
-const seedResult = ref<string | null>(null)
 
 const { isSyncing, lastSyncedAt, syncError, fullSync } = useSync()
 const syncMessage = ref<string | null>(null)
@@ -38,48 +37,9 @@ async function handleSync() {
     await Promise.all([
       projectStore.loadProjects(),
       materialStore.loadMaterials(),
-      equipmentStore.loadEquipment()
+      equipmentStore.loadEquipment(),
+      storageLocationStore.loadLocations()
     ])
-  }
-}
-
-async function loadSeedData() {
-  if (isSeeding.value) return
-  isSeeding.value = true
-  seedResult.value = null
-
-  try {
-    await materialStore.loadMaterials()
-    await equipmentStore.loadEquipment()
-
-    let matCount = 0
-    for (const mat of SEED_MATERIALS) {
-      const exists = materialStore.materials.find(
-        m => m.name === mat.name && m.specifications === mat.specifications
-      )
-      if (!exists) {
-        await materialStore.createMaterial(mat)
-        matCount++
-      }
-    }
-
-    let eqCount = 0
-    for (const eq of SEED_EQUIPMENT) {
-      const exists = equipmentStore.equipment.find(
-        e => e.name === eq.name && e.specifications === eq.specifications
-      )
-      if (!exists) {
-        await equipmentStore.createEquipment(eq)
-        eqCount++
-      }
-    }
-
-    seedResult.value = `${matCount} Materialien und ${eqCount} Ausrüstungen angelegt`
-  } catch (e) {
-    seedResult.value = 'Fehler beim Laden der Testdaten'
-    console.error('Seed data error:', e)
-  } finally {
-    isSeeding.value = false
   }
 }
 
@@ -108,6 +68,7 @@ async function clearAllData() {
     await db.materialRequirements.clear()
     await db.equipment.clear()
     await db.equipmentRequirements.clear()
+    await db.storageLocations.clear()
     await db.syncMeta.clear()
     localStorage.removeItem('customCategories')
 
@@ -115,7 +76,8 @@ async function clearAllData() {
     await Promise.all([
       projectStore.loadProjects(),
       materialStore.loadMaterials(),
-      equipmentStore.loadEquipment()
+      equipmentStore.loadEquipment(),
+      storageLocationStore.loadLocations()
     ])
     showClearConfirm.value = false
   } finally {
@@ -192,20 +154,6 @@ async function clearAllData() {
           </div>
           <span class="text-sm text-earth-400">IndexedDB</span>
         </div>
-
-        <BaseButton
-          variant="primary"
-          full-width
-          :loading="isSeeding"
-          @click="loadSeedData"
-        >
-          <PackagePlus class="w-5 h-5" />
-          Standarddaten laden
-        </BaseButton>
-
-        <p v-if="seedResult" class="text-sm text-forest-400 text-center">
-          {{ seedResult }}
-        </p>
 
         <BaseButton
           variant="danger"

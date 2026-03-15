@@ -3,12 +3,13 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ChevronLeft, Plus, Trash2, CheckCircle2, Edit3, Save, X,
-  Building2, Compass, Hammer, FolderPlus, Package, Backpack, Clock, Users, StickyNote, Image, PenLine, Upload, Search
+  Building2, Compass, Hammer, FolderPlus, Package, Backpack, Clock, Users, StickyNote, Image, PenLine, Upload, Search, MapPin
 } from 'lucide-vue-next'
 import { useProjectStore } from '@entities/project/model/store'
 import { useTaskStore } from '@entities/task/model/store'
 import { useMaterialStore } from '@entities/material/model/store'
 import { useEquipmentStore } from '@entities/equipment/model/store'
+import { useStorageLocationStore } from '@entities/storage-location/model/store'
 import { UNIT_GROUPS } from '@entities/material/model/types'
 import type { ProjectStatus } from '@entities/project/model/types'
 import { PROJECT_STATUS_LABELS } from '@entities/project/model/types'
@@ -25,6 +26,7 @@ const projectStore = useProjectStore()
 const taskStore = useTaskStore()
 const materialStore = useMaterialStore()
 const equipmentStore = useEquipmentStore()
+const locationStore = useStorageLocationStore()
 
 const projectId = computed(() => route.params.id as string)
 const project = computed(() => projectStore.projectById(projectId.value))
@@ -68,7 +70,16 @@ const selectedItemType = ref<ItemType | null>(null)
 const itemAmount = ref(1)
 
 // New item form
-const newItem = ref({ type: 'material' as ItemType, name: '', specifications: '', unit: '' })
+const newItem = ref({ type: 'material' as ItemType, name: '', specifications: '', unit: '', owner: '', storageLocationId: '' })
+
+const locationOptions = computed(() =>
+  locationStore.locations.map(l => ({ value: l.id, label: l.name }))
+)
+
+function getLocationName(locationId?: string): string | undefined {
+  if (!locationId) return undefined
+  return locationStore.locationById(locationId)?.name
+}
 
 // Edit requirement
 const editingReqId = ref('')
@@ -79,11 +90,13 @@ const editReqAmount = ref(1)
 const allItems = computed(() => {
   const materials = materialStore.materials.map(m => ({
     type: 'material' as ItemType, id: m.id, name: m.name,
-    specifications: m.specifications, currentStock: m.currentStock, unit: m.unit
+    specifications: m.specifications, currentStock: m.currentStock, unit: m.unit,
+    owner: m.owner, storageLocationId: m.storageLocationId
   }))
   const equipment = equipmentStore.equipment.map(e => ({
     type: 'equipment' as ItemType, id: e.id, name: e.name,
-    specifications: e.specifications, currentStock: e.currentStock, unit: undefined
+    specifications: e.specifications, currentStock: e.currentStock, unit: undefined as string | undefined,
+    owner: e.owner, storageLocationId: e.storageLocationId
   }))
   return [...materials, ...equipment]
 })
@@ -270,7 +283,7 @@ async function confirmAddItem() {
 }
 
 function openNewItemModal() {
-  newItem.value = { type: 'material', name: '', specifications: '', unit: '' }
+  newItem.value = { type: 'material', name: '', specifications: '', unit: '', owner: '', storageLocationId: project.value?.storageLocationId || '' }
   showNewItemModal.value = true
 }
 
@@ -282,23 +295,35 @@ async function createNewItem() {
       name: newItem.value.name.trim(),
       specifications: newItem.value.specifications.trim() || undefined,
       unit: newItem.value.unit || undefined,
+      owner: newItem.value.owner.trim() || undefined,
+      storageLocationId: newItem.value.storageLocationId || undefined,
       currentStock: 0
     })
     if (material) {
+      await materialStore.createRequirement({
+        projectId: projectId.value,
+        materialId: material.id,
+        requiredAmount: itemAmount.value || 1
+      })
       showNewItemModal.value = false
-      selectedItemType.value = 'material'
-      selectedItemId.value = material.id
+      showAddItem.value = false
     }
   } else {
     const equipment = await equipmentStore.createEquipment({
       name: newItem.value.name.trim(),
       specifications: newItem.value.specifications.trim() || undefined,
+      owner: newItem.value.owner.trim() || undefined,
+      storageLocationId: newItem.value.storageLocationId || undefined,
       currentStock: 0
     })
     if (equipment) {
+      await equipmentStore.createRequirement({
+        projectId: projectId.value,
+        equipmentId: equipment.id,
+        requiredAmount: itemAmount.value || 1
+      })
       showNewItemModal.value = false
-      selectedItemType.value = 'equipment'
-      selectedItemId.value = equipment.id
+      showAddItem.value = false
     }
   }
 }
@@ -528,10 +553,27 @@ async function removeSketch() {
           </h1>
         </div>
 
-        <!-- Category (clickable für größere Schrift) -->
-        <p class="text-base text-forest-400 mb-3 font-medium">
-          {{ getCategoryName() }}
-        </p>
+        <!-- Category & Location -->
+        <div class="flex items-center gap-3 mb-3 flex-wrap">
+          <p class="text-base text-forest-400 font-medium">
+            {{ getCategoryName() }}
+          </p>
+          <div v-if="project.storageLocationId" class="flex items-center gap-1 text-sm text-earth-400">
+            <MapPin class="w-3.5 h-3.5" />
+            <span>{{ getLocationName(project.storageLocationId) }}</span>
+          </div>
+        </div>
+
+        <!-- Storage location selector -->
+        <div class="mb-4">
+          <BaseSelect
+            :model-value="project.storageLocationId || ''"
+            label="Lagerort (optional)"
+            :options="locationOptions"
+            empty-label="Kein Lagerort"
+            @update:model-value="(val: string) => projectStore.updateProject(projectId, { storageLocationId: val || undefined })"
+          />
+        </div>
 
         <!-- Status selector - aktive Phase deutlich hervorgehoben -->
         <div class="flex gap-1.5 mb-4">
@@ -1019,6 +1061,14 @@ async function removeSketch() {
               {{ item.currentStock }} {{ item.unit || 'Stück' }} auf Lager
               <span class="text-earth-600">·</span>
               {{ item.type === 'material' ? 'Material' : 'Ausrüstung' }}
+              <template v-if="item.owner">
+                <span class="text-earth-600">·</span>
+                <span class="text-amber-400">{{ item.owner }}</span>
+              </template>
+              <template v-if="item.storageLocationId">
+                <span class="text-earth-600">·</span>
+                <span class="text-forest-400">{{ getLocationName(item.storageLocationId) }}</span>
+              </template>
             </p>
           </div>
         </button>
@@ -1112,6 +1162,19 @@ async function removeSketch() {
           label="Einheit (optional)"
           :groups="unitGroups"
           empty-label="Keine Einheit"
+        />
+
+        <BaseInput
+          v-model="newItem.owner"
+          label="Eigentümer (optional)"
+          placeholder="z.B. Moritz, Tim"
+        />
+
+        <BaseSelect
+          v-model="newItem.storageLocationId"
+          label="Lagerort (optional)"
+          :options="locationOptions"
+          empty-label="Kein Lagerort"
         />
       </form>
 

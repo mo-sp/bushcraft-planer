@@ -51,6 +51,23 @@ export const useEquipmentStore = defineStore('equipment', () => {
     return equipmentWithStock.value.filter(e => e.isLow)
   })
 
+  const equipmentByLocation = computed(() => {
+    return (locationId: string) =>
+      equipment.value.filter(e => e.storageLocationId === locationId)
+  })
+
+  const equipmentByOwner = computed(() => {
+    return (owner: string) =>
+      equipment.value.filter(e => e.owner === owner)
+  })
+
+  const uniqueOwners = computed(() => {
+    const owners = equipment.value
+      .map(e => e.owner)
+      .filter((o): o is string => !!o)
+    return [...new Set(owners)].sort()
+  })
+
   // Actions
   async function loadEquipment(): Promise<void> {
     loading.value = true
@@ -73,6 +90,8 @@ export const useEquipmentStore = defineStore('equipment', () => {
       name: input.name,
       specifications: input.specifications,
       currentStock: input.currentStock ?? 0,
+      owner: input.owner,
+      storageLocationId: input.storageLocationId,
       createdAt: now,
       updatedAt: now
     }
@@ -220,6 +239,9 @@ export const useEquipmentStore = defineStore('equipment', () => {
     requirementsByEquipment,
     equipmentWithStock,
     lowStockEquipment,
+    equipmentByLocation,
+    equipmentByOwner,
+    uniqueOwners,
     // Actions
     loadEquipment,
     createEquipment,

@@ -5,6 +5,8 @@ export interface Material {
   unit?: string           // Optional
   currentStock: number
   icon?: string
+  owner?: string          // e.g. "Moritz"
+  storageLocationId?: string // FK to storage_locations
   createdAt: Date
   updatedAt: Date
   syncedAt?: Date
@@ -26,6 +28,8 @@ export interface CreateMaterialInput {
   unit?: string           // Optional
   currentStock?: number
   icon?: string
+  owner?: string
+  storageLocationId?: string
 }
 
 export interface UpdateMaterialInput {
@@ -34,6 +38,8 @@ export interface UpdateMaterialInput {
   unit?: string
   currentStock?: number
   icon?: string
+  owner?: string
+  storageLocationId?: string
 }
 
 export interface CreateMaterialRequirementInput {
