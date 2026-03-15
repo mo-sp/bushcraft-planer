@@ -39,7 +39,10 @@ function onInput(e: Event) {
 function selectSuggestion(name: string) {
   emit('update:modelValue', name)
   showDropdown.value = false
-  nextTick(() => inputRef.value?.blur())
+  nextTick(() => {
+    inputRef.value?.blur()
+    emit('enter')
+  })
 }
 
 function onFocus() {

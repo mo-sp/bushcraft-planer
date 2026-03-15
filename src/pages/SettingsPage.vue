@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { useOnline } from '@vueuse/core'
 import { Capacitor } from '@capacitor/core'
 import {
-  Cloud, CloudOff, Database, Trash2, Info, RefreshCw, UserCog, X, VolumeX, Volume2
+  Cloud, CloudOff, Trash2, Info, RefreshCw, UserCog, X, VolumeX, Volume2
 } from 'lucide-vue-next'
 import { db } from '@shared/api/db'
 import { isSupabaseConfigured } from '@shared/api/supabase'
@@ -258,6 +258,26 @@ async function clearAllData() {
         <p v-if="syncMessage" :class="['text-sm text-center', syncError ? 'text-amber-400' : 'text-forest-400']">
           {{ syncMessage }}
         </p>
+
+        <!-- Data counts -->
+        <div v-if="lastSyncedAt" class="grid grid-cols-2 gap-2 mt-1">
+          <div class="flex items-center justify-between p-2 bg-deep-200 rounded-lg">
+            <span class="text-xs text-earth-400">Projekte</span>
+            <span class="text-xs text-earth-200 font-medium">{{ projectStore.projects.length }}</span>
+          </div>
+          <div class="flex items-center justify-between p-2 bg-deep-200 rounded-lg">
+            <span class="text-xs text-earth-400">Material</span>
+            <span class="text-xs text-earth-200 font-medium">{{ materialStore.materials.length }}</span>
+          </div>
+          <div class="flex items-center justify-between p-2 bg-deep-200 rounded-lg">
+            <span class="text-xs text-earth-400">Ausrüstung</span>
+            <span class="text-xs text-earth-200 font-medium">{{ equipmentStore.equipment.length }}</span>
+          </div>
+          <div class="flex items-center justify-between p-2 bg-deep-200 rounded-lg">
+            <span class="text-xs text-earth-400">Lagerorte</span>
+            <span class="text-xs text-earth-200 font-medium">{{ storageLocationStore.locations.length }}</span>
+          </div>
+        </div>
       </div>
 
       <div v-else-if="!isSupabaseConfigured()" class="p-3 bg-deep-200 rounded-lg">
@@ -265,29 +285,18 @@ async function clearAllData() {
           Supabase ist nicht konfiguriert. Die App funktioniert vollständig offline.
         </p>
       </div>
-    </BaseCard>
 
-    <!-- Data management -->
-    <BaseCard class="mb-4">
-      <h3 class="font-medium text-earth-100 mb-4">Datenverwaltung</h3>
-
-      <div class="space-y-3">
-        <div class="flex items-center justify-between p-3 bg-deep-200 rounded-lg">
-          <div class="flex items-center gap-3">
-            <Database class="w-5 h-5 text-earth-400" />
-            <span class="text-sm text-earth-200">Lokale Datenbank</span>
-          </div>
-          <span class="text-sm text-earth-400">IndexedDB</span>
-        </div>
-
-        <BaseButton
-          variant="danger"
-          full-width
-          @click="showClearConfirm = true"
-        >
-          <Trash2 class="w-5 h-5" />
-          Lokale Daten vollständig löschen
-        </BaseButton>
+      <!-- Sync info -->
+      <div class="mt-4 p-3 bg-deep-200 rounded-lg space-y-2">
+        <p class="text-sm text-earth-300 font-medium">Wann wird synchronisiert?</p>
+        <ul class="text-xs text-earth-400 space-y-1 ml-3 list-disc">
+          <li>Automatisch beim App-Start</li>
+          <li>Manuell per Klick auf den Sync-Status oben</li>
+        </ul>
+        <p class="text-xs text-earth-500 mt-2">
+          Alle können gleichzeitig arbeiten. Änderungen an verschiedenen Einträgen werden problemlos zusammengeführt.
+          Bei gleichzeitiger Bearbeitung desselben Feldes gewinnt die letzte Änderung.
+        </p>
       </div>
     </BaseCard>
 
@@ -372,7 +381,7 @@ async function clearAllData() {
     </BaseCard>
 
     <!-- App info -->
-    <BaseCard>
+    <BaseCard class="mb-4">
       <h3 class="font-medium text-earth-100 mb-4">Info</h3>
 
       <div class="space-y-3">
@@ -399,6 +408,22 @@ async function clearAllData() {
           </p>
         </div>
       </div>
+    </BaseCard>
+
+    <!-- Data management (at the bottom, rarely needed) -->
+    <BaseCard>
+      <h3 class="font-medium text-earth-100 mb-2">Gefahrenzone</h3>
+      <p class="text-xs text-earth-500 mb-4">
+        Löscht alle lokalen Daten. Nach erneutem Sync werden die Cloud-Daten wiederhergestellt.
+      </p>
+      <BaseButton
+        variant="danger"
+        full-width
+        @click="showClearConfirm = true"
+      >
+        <Trash2 class="w-5 h-5" />
+        Lokale Daten vollständig löschen
+      </BaseButton>
     </BaseCard>
 
     <!-- Delete person confirmation -->
