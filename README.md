@@ -1,121 +1,174 @@
-# Bushcraft Planer
+<p align="center">
+  <img src="screenshots/NatureBoyz_1.jpg" alt="Nature Boyz Logo" width="200" />
+</p>
 
-Eine mobile-first PWA zur Planung und Verwaltung von Bushcraft-Projekten.
+<h1 align="center">Nature Boyz - Bushcraft Planer</h1>
+
+<p align="center">
+  Mobile-first App zur gemeinsamen Planung von Bushcraft-Projekten.<br/>
+  Offline-first mit Cloud-Sync fuer die ganze Gruppe.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/version-0.9.0-green" alt="Version" />
+  <img src="https://img.shields.io/badge/platform-Android%20%7C%20PWA-blue" alt="Platform" />
+  <img src="https://img.shields.io/badge/status-beta-orange" alt="Status" />
+</p>
+
+---
+
+## Was ist das?
+
+Der **Bushcraft Planer** ist eine App fuer eine Gruppe von Freunden ("Nature Boyz"), die gemeinsam Bushcraft-Projekte planen und durchfuehren. Die App hilft bei der Verwaltung von:
+
+- **Projekten** - Bauprojekte, Erkundungen, Werkzeuge & eigene Kategorien
+- **Materialien** - Stoecke, Seile, Steine, Lehm und alles was die Natur hergibt
+- **Ausruestung** - Messer, Aexte, Tarps, Fernglas und mehr
+- **Lagerorten** - Wo liegt was im Wald?
+- **Personen** - Wer ist wofuer zustaendig?
+
+Alles wird lokal auf dem Geraet gespeichert und optional ueber die Cloud synchronisiert, damit alle auf dem gleichen Stand sind.
 
 ## Features
 
-- **Projekt-Management**: Erstelle und verwalte Bushcraft-Projekte mit Kategorien (Shelter, Feuer, Werkzeuge)
-- **Aufgaben-Tracking**: Abhakbare Aufgabenlisten mit Fortschrittsanzeige
-- **Material-Inventar**: Verwalte deinen Materialbestand mit +/- Buttons
-- **Offline-First**: Funktioniert vollständig offline mit lokaler IndexedDB-Speicherung
-- **PWA**: Installierbar auf Mobilgeräten und Desktop
-- **Multi-User Sync**: Optionale Synchronisation via Supabase (in Entwicklung)
+### Projektverwaltung
+- Projekte mit Kategorien, Bildern, Skizzen und Notizen
+- Aufgaben mit Dauer und Mannstaerke
+- Material- und Ausruestungsbedarf pro Projekt
+- Beteiligte und Verantwortliche zuweisen
+- Status-Tracking: Geplant > In Bearbeitung > Abgeschlossen
+
+### Material- & Ausruestungslager
+- Bestandsverwaltung mit Einheiten (Stueck, Meter, kg, Liter...)
+- Spezifikationen (z.B. "Stock, 2m, gerade")
+- Besitzer und Lagerort zuweisen
+- Automatische Bedarfsberechnung aus Projekten
+
+### Lagerorte
+- Orte im Wald verwalten (z.B. "Hippie-Wald", "Geheimplatz")
+- Material und Ausruestung Lagern zuweisen
+- Uebersicht: was liegt wo?
+
+### Sync & Zusammenarbeit
+- Offline-first: funktioniert komplett ohne Internet
+- Automatischer Sync beim App-Start
+- Manueller Sync per Klick
+- Alle koennen gleichzeitig arbeiten
+- Last-write-wins Konfliktloesung
+
+### Weitere Features
+- Dark Theme mit Wald-Farbpalette
+- Bildkompression fuer Projektfotos
+- Filter auf allen Seiten (Lager, Besitzer, Status, Kategorie)
+- Personen verwalten (anlegen, umbenennen, entfernen)
+- Intro-Screen mit AI-generiertem Song
+- Android Hardware-Back-Button Support
 
 ## Tech Stack
 
-- **Vue 3** (Composition API) + **TypeScript**
-- **Vite** (Build Tool)
-- **Pinia** (State Management)
-- **Vue Router** (Navigation)
-- **Tailwind CSS v4** (Styling)
-- **Dexie.js** (IndexedDB)
-- **Supabase** (Optional: Backend & Sync)
-- **Vitest** (Testing)
+| Bereich | Technologie |
+|---------|-------------|
+| Frontend | Vue 3 (Composition API, `<script setup>`) + TypeScript |
+| Build | Vite 7 |
+| State | Pinia 3 |
+| Routing | Vue Router 5 |
+| Styling | Tailwind CSS v4 |
+| Lokale DB | Dexie.js 4 (IndexedDB) |
+| Backend | Supabase (PostgreSQL) |
+| Native | Capacitor 8 (Android) |
+| Icons | Lucide Vue Next |
+| Utilities | VueUse |
+| Testing | Vitest + happy-dom |
 
-## Installation
+## Architektur
 
-```bash
-# Dependencies installieren
-npm install
-
-# Entwicklungsserver starten
-npm run dev
-
-# Produktion Build
-npm run build
-
-# Tests ausführen
-npm run test
-```
-
-## Projekt-Struktur (Feature-Sliced Design)
+Feature-Sliced Design:
 
 ```
 src/
-├── app/                    # App-Initialisierung, Router, Hauptkomponenten
-├── entities/               # Business-Entitäten (Project, Task, Material)
-│   ├── project/
-│   ├── task/
-│   └── material/
-├── features/               # User-Interaktionen (Sync, etc.)
-├── widgets/                # Zusammengesetzte UI-Blöcke
-├── pages/                  # Seiten-Komponenten
-└── shared/                 # Wiederverwendbare Utilities
-    ├── ui/                 # Basis-Komponenten
-    ├── lib/                # Helpers, Composables
-    ├── api/                # Datenbank, Supabase
-    └── config/             # Konfiguration
+  app/              App Shell, Navigation, Router, Splash Screen
+  entities/         Business-Logik
+    project/          Projekte (types, store)
+    task/             Aufgaben
+    material/         Materialien
+    equipment/        Ausruestung
+    storage-location/ Lagerorte
+  features/         Sync mit Supabase
+  pages/            Seiten-Komponenten
+  shared/
+    ui/             Wiederverwendbare Base-Komponenten
+    api/            Dexie DB, Supabase Client
+    lib/            Composables, Helpers
+    config/         Umgebungsvariablen
 ```
 
-## Supabase Setup (Optional)
+## Installation
 
-1. Erstelle ein Supabase-Projekt
-2. Kopiere `.env.example` zu `.env`
-3. Füge deine Supabase-URL und Anon-Key ein
+### Voraussetzungen
 
-```sql
--- SQL für Supabase-Tabellen
-create table projects (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  description text,
-  category text not null,
-  image_url text,
-  image_placeholder text not null,
-  status text not null default 'planned',
-  created_by text not null,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+- Node.js 18+
+- npm 9+
 
-create table tasks (
-  id uuid primary key default gen_random_uuid(),
-  project_id uuid references projects(id) on delete cascade,
-  title text not null,
-  description text,
-  is_completed boolean default false,
-  "order" integer default 0,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+### Development
 
-create table materials (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  unit text not null,
-  current_stock integer default 0,
-  icon text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-
-create table material_requirements (
-  id uuid primary key default gen_random_uuid(),
-  material_id uuid references materials(id) on delete cascade,
-  project_id uuid references projects(id) on delete cascade,
-  required_amount integer not null,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+```bash
+git clone https://github.com/mo-sp/bushcraft-planer.git
+cd bushcraft-planer
+npm install
+npm run dev
 ```
+
+### Mit Netzwerkzugriff (Handy-Test im gleichen WLAN)
+
+```bash
+npm run dev -- --host
+```
+
+### Production Build
+
+```bash
+npm run build
+```
+
+### Android APK
+
+```bash
+npm run cap:sync    # Web-Build + Capacitor Sync
+npm run cap:run     # Auf Emulator/Geraet starten
+```
+
+## Supabase (optional)
+
+Fuer Cloud-Sync eine `.env` Datei im Projektroot anlegen:
+
+```
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+Datenbank-Schema einrichten: siehe `supabase-schema.sql`
+
+## Navigation
+
+| Tab | Beschreibung |
+|-----|-------------|
+| Projekte | Dashboard mit allen Projekten, Filter nach Status/Kategorie/Beteiligte |
+| Material | Materiallager mit Bestandsverwaltung |
+| Ausruestung | Ausruestungslager |
+| Lagerorte | Lagerverwaltung |
+| Settings | Sync, Personen, Einstellungen |
 
 ## PWA Installation
 
-Die App kann auf mobilen Geräten und Desktop installiert werden:
+Die App kann auch im Browser als PWA installiert werden:
 
-1. Öffne die App im Browser
-2. Klicke auf "Zur Startseite hinzufügen" oder das Install-Symbol
-3. Die App ist nun offline verfügbar
+1. App im Browser oeffnen
+2. "Zur Startseite hinzufuegen" oder Install-Symbol klicken
+3. Die App ist nun offline verfuegbar
+
+## Credits
+
+Entwickelt von **Claude & Moritz**
 
 ## Lizenz
 
