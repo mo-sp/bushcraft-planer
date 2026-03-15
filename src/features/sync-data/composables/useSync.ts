@@ -82,6 +82,7 @@ function taskToRemote(t: Task) {
     description: t.description || null,
     duration: t.duration ?? null,
     manpower: t.manpower,
+    assignees: t.assignees && t.assignees.length > 0 ? t.assignees : null,
     is_completed: t.isCompleted,
     order: t.order,
     created_at: toISO(t.createdAt),
@@ -97,6 +98,7 @@ function taskFromRemote(r: Record<string, any>): Task {
     description: r.description || undefined,
     duration: r.duration ?? undefined,
     manpower: r.manpower ?? 1,
+    assignees: r.assignees || undefined,
     isCompleted: r.is_completed ?? false,
     order: r.order ?? 0,
     createdAt: toDate(r.created_at),
@@ -431,6 +433,10 @@ export function useSync() {
         }
         if (changed) {
           localStorage.setItem('customCategories', JSON.stringify(customs))
+          // Trigger store reload so allCategories picks up new custom categories
+          const { useProjectStore } = await import('@entities/project/model/store')
+          const projectStore = useProjectStore()
+          await projectStore.loadProjects()
         }
       }
 

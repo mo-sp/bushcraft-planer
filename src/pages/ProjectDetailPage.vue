@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ChevronLeft, Plus, Trash2, CheckCircle2, Edit3, Save, X,
-  Building2, Compass, Hammer, FolderPlus, Package, Backpack, Clock, Users, StickyNote, Image, PenLine, Upload, Search, MapPin
+  Building2, Compass, Hammer, FolderPlus, Package, Backpack, Clock, Users, StickyNote, Image, PenLine, Upload, Search, MapPin, Copy
 } from 'lucide-vue-next'
 import { useProjectStore } from '@entities/project/model/store'
 import { useTaskStore } from '@entities/task/model/store'
@@ -33,6 +33,19 @@ const { knownPersons } = useKnownPersons()
 const projectId = computed(() => route.params.id as string)
 const project = computed(() => projectStore.projectById(projectId.value))
 const tasks = computed(() => taskStore.tasksByProject(projectId.value))
+const totalProjectDuration = computed(() =>
+  tasks.value.reduce((sum, t) => sum + (t.duration || 0), 0)
+)
+const completedProjectDuration = computed(() =>
+  tasks.value.filter(t => t.isCompleted).reduce((sum, t) => sum + (t.duration || 0), 0)
+)
+// Progress based on duration if tasks have durations, otherwise by task count
+const projectProgressValue = computed(() => {
+  if (totalProjectDuration.value > 0) {
+    return Math.round((completedProjectDuration.value / totalProjectDuration.value) * 100)
+  }
+  return taskStore.projectProgress(projectId.value)
+})
 const materialReqs = computed(() => materialStore.requirementsByProject(projectId.value))
 const equipmentReqs = computed(() => equipmentStore.requirementsByProject(projectId.value))
 
@@ -49,6 +62,18 @@ const showDeleteConfirm = ref(false)
 const showAddItem = ref(false)
 const showNewItemModal = ref(false)
 const showEditReq = ref(false)
+const showItemDetail = ref(false)
+const detailItemType = ref<ItemType>('material')
+const detailItemId = ref('')
+const showEditItemModal = ref(false)
+const editItemForm = ref({
+  name: '',
+  specifications: '',
+  unit: '',
+  currentStock: 0,
+  owner: '',
+  storageLocationId: ''
+})
 const isDeleting = ref(false)
 
 // New task form
@@ -56,6 +81,9 @@ const newTaskTitle = ref('')
 const newTaskDescription = ref('')
 const newTaskDuration = ref<number | ''>('')
 const newTaskManpower = ref(1)
+const newTaskAssignees = ref<string[]>([])
+const newTaskAssignee = ref('')
+const showTaskTemplates = ref(false)
 
 // Edit task form
 const editingTaskId = ref('')
@@ -63,6 +91,8 @@ const editTaskTitle = ref('')
 const editTaskDescription = ref('')
 const editTaskDuration = ref<number | ''>('')
 const editTaskManpower = ref(1)
+const editTaskAssignees = ref<string[]>([])
+const editTaskAssignee = ref('')
 
 // Item selection (materials + equipment)
 type ItemType = 'material' | 'equipment'
@@ -168,8 +198,19 @@ function getItemDisplayName(item: { name: string; specifications?: string }) {
   return item.specifications ? `${item.name} (${item.specifications})` : item.name
 }
 
+function handleGlobalClick() {
+  if (inlineAssignTaskId.value) {
+    inlineAssignTaskId.value = null
+  }
+}
+
 onMounted(async () => {
   await taskStore.loadTasks(projectId.value)
+  document.addEventListener('click', handleGlobalClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleGlobalClick)
 })
 
 watch(projectId, async (newId) => {
@@ -213,22 +254,120 @@ async function toggleTask(taskId: string) {
   await taskStore.toggleTask(taskId)
 }
 
+// Task assignee suggestions: known persons minus already assigned
+const newTaskAssigneeSuggestions = computed(() =>
+  knownPersons.value.filter(p => !newTaskAssignees.value.includes(p))
+)
+const editTaskAssigneeSuggestions = computed(() =>
+  knownPersons.value.filter(p => !editTaskAssignees.value.includes(p))
+)
+
+// Task templates: completed tasks from all projects (unique by title)
+const taskTemplates = computed(() => {
+  const seen = new Set<string>()
+  return taskStore.tasks
+    .filter(t => t.isCompleted)
+    .filter(t => {
+      const key = t.title.toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .sort((a, b) => a.title.localeCompare(b.title))
+})
+
+function applyTaskTemplate(template: Task) {
+  newTaskTitle.value = template.title
+  newTaskDescription.value = template.description || ''
+  newTaskDuration.value = template.duration || ''
+  newTaskManpower.value = template.manpower || 1
+  newTaskAssignees.value = template.assignees ? [...template.assignees] : []
+  showTaskTemplates.value = false
+}
+
+function addNewTaskAssignee() {
+  const name = newTaskAssignee.value.trim()
+  if (name && !newTaskAssignees.value.includes(name)) {
+    newTaskAssignees.value.push(name)
+  }
+  newTaskAssignee.value = ''
+}
+
+function removeNewTaskAssignee(index: number) {
+  newTaskAssignees.value.splice(index, 1)
+}
+
+function addEditTaskAssignee() {
+  const name = editTaskAssignee.value.trim()
+  if (name && !editTaskAssignees.value.includes(name)) {
+    editTaskAssignees.value.push(name)
+  }
+  editTaskAssignee.value = ''
+}
+
+function removeEditTaskAssignee(index: number) {
+  editTaskAssignees.value.splice(index, 1)
+}
+
+// Inline quick-assign: remove/add assignee directly from task list
+const inlineAssignTaskId = ref<string | null>(null)
+
+function getAvailablePersonsForTask(taskId: string) {
+  const task = tasks.value.find(t => t.id === taskId)
+  return knownPersons.value.filter(p => !(task?.assignees || []).includes(p))
+}
+
+async function removeTaskAssigneeInline(taskId: string, person: string) {
+  const task = tasks.value.find(t => t.id === taskId)
+  if (!task) return
+  const updated = (task.assignees || []).filter(n => n !== person)
+  await taskStore.updateTask(taskId, {
+    assignees: updated,
+    manpower: updated.length > 0 ? updated.length : task.manpower
+  })
+}
+
+function toggleInlineAssign(taskId: string) {
+  inlineAssignTaskId.value = inlineAssignTaskId.value === taskId ? null : taskId
+}
+
+async function quickAssignPerson(taskId: string, name: string) {
+  const task = tasks.value.find(t => t.id === taskId)
+  if (!task) return
+  const current = task.assignees || []
+  if (current.includes(name)) return
+  const updated = [...current, name]
+  await taskStore.updateTask(taskId, {
+    assignees: updated,
+    manpower: updated.length
+  })
+  // Keep dropdown open if more persons available
+  if (getAvailablePersonsForTask(taskId).length <= 1) {
+    inlineAssignTaskId.value = null
+  }
+}
+
 function resetTaskForm() {
   newTaskTitle.value = ''
   newTaskDescription.value = ''
   newTaskDuration.value = ''
   newTaskManpower.value = 1
+  newTaskAssignees.value = []
+  newTaskAssignee.value = ''
+  showTaskTemplates.value = false
 }
 
 async function addTask() {
   if (!newTaskTitle.value.trim()) return
 
+  const assignees = newTaskAssignees.value.length > 0 ? newTaskAssignees.value : undefined
   await taskStore.createTask({
     projectId: projectId.value,
     title: newTaskTitle.value.trim(),
     description: newTaskDescription.value.trim() || undefined,
     duration: newTaskDuration.value || undefined,
-    manpower: newTaskManpower.value
+    manpower: assignees ? assignees.length : newTaskManpower.value,
+    assignees
   })
 
   resetTaskForm()
@@ -241,16 +380,20 @@ function startEditTask(task: Task) {
   editTaskDescription.value = task.description || ''
   editTaskDuration.value = task.duration || ''
   editTaskManpower.value = task.manpower || 1
+  editTaskAssignees.value = task.assignees ? [...task.assignees] : []
+  editTaskAssignee.value = ''
   showEditTask.value = true
 }
 
 async function saveEditTask() {
   if (!editTaskTitle.value.trim()) return
+  const assignees = editTaskAssignees.value.length > 0 ? editTaskAssignees.value : undefined
   await taskStore.updateTask(editingTaskId.value, {
     title: editTaskTitle.value.trim(),
     description: editTaskDescription.value.trim() || undefined,
     duration: editTaskDuration.value || undefined,
-    manpower: editTaskManpower.value
+    manpower: assignees ? assignees.length : editTaskManpower.value,
+    assignees: assignees || []
   })
   showEditTask.value = false
 }
@@ -421,6 +564,131 @@ function getMaterialStock(materialId: string): number {
 function getMaterialUnit(materialId: string): string {
   const material = materialStore.materialById(materialId)
   return material?.unit ?? ''
+}
+
+function getMaterialSpecs(materialId: string): string | undefined {
+  return materialStore.materialById(materialId)?.specifications
+}
+
+function getMaterialOwner(materialId: string): string | undefined {
+  return materialStore.materialById(materialId)?.owner
+}
+
+function getMaterialLocation(materialId: string): string | undefined {
+  const locId = materialStore.materialById(materialId)?.storageLocationId
+  return locId ? locationStore.locationById(locId)?.name : undefined
+}
+
+// Item detail modal
+function openItemDetail(type: ItemType, id: string) {
+  detailItemType.value = type
+  detailItemId.value = id
+  showItemDetail.value = true
+}
+
+const detailItem = computed(() => {
+  if (!detailItemId.value) return null
+  if (detailItemType.value === 'material') {
+    const m = materialStore.materialById(detailItemId.value)
+    if (!m) return null
+    return {
+      type: 'material' as ItemType,
+      name: m.name,
+      specifications: m.specifications,
+      unit: m.unit,
+      currentStock: m.currentStock,
+      owner: m.owner,
+      storageLocationId: m.storageLocationId,
+      locationName: m.storageLocationId ? locationStore.locationById(m.storageLocationId)?.name : undefined,
+      totalRequired: materialStore.requirementsByMaterial(m.id).reduce((sum, r) => sum + r.requiredAmount, 0),
+      projects: materialStore.requirementsByMaterial(m.id).map(r => {
+        const p = projectStore.projectById(r.projectId)
+        return p ? { name: p.name, amount: r.requiredAmount } : null
+      }).filter(Boolean) as { name: string; amount: number }[]
+    }
+  } else {
+    const e = equipmentStore.equipmentById(detailItemId.value)
+    if (!e) return null
+    return {
+      type: 'equipment' as ItemType,
+      name: e.name,
+      specifications: e.specifications,
+      unit: undefined as string | undefined,
+      currentStock: e.currentStock,
+      owner: e.owner,
+      storageLocationId: e.storageLocationId,
+      locationName: e.storageLocationId ? locationStore.locationById(e.storageLocationId)?.name : undefined,
+      totalRequired: equipmentStore.requirementsByEquipment(e.id).reduce((sum, r) => sum + r.requiredAmount, 0),
+      projects: equipmentStore.requirementsByEquipment(e.id).map(r => {
+        const p = projectStore.projectById(r.projectId)
+        return p ? { name: p.name, amount: r.requiredAmount } : null
+      }).filter(Boolean) as { name: string; amount: number }[]
+    }
+  }
+})
+
+function openEditItem() {
+  showItemDetail.value = false
+  if (detailItemType.value === 'material') {
+    const m = materialStore.materialById(detailItemId.value)
+    if (!m) return
+    editItemForm.value = {
+      name: m.name,
+      specifications: m.specifications || '',
+      unit: m.unit || '',
+      currentStock: m.currentStock,
+      owner: m.owner || '',
+      storageLocationId: m.storageLocationId || ''
+    }
+  } else {
+    const e = equipmentStore.equipmentById(detailItemId.value)
+    if (!e) return
+    editItemForm.value = {
+      name: e.name,
+      specifications: e.specifications || '',
+      unit: '',
+      currentStock: e.currentStock,
+      owner: e.owner || '',
+      storageLocationId: e.storageLocationId || ''
+    }
+  }
+  showEditItemModal.value = true
+}
+
+async function saveEditItem() {
+  if (!editItemForm.value.name.trim()) return
+  if (detailItemType.value === 'material') {
+    await materialStore.updateMaterial(detailItemId.value, {
+      name: editItemForm.value.name.trim(),
+      specifications: editItemForm.value.specifications.trim() || undefined,
+      unit: editItemForm.value.unit || undefined,
+      currentStock: editItemForm.value.currentStock,
+      owner: editItemForm.value.owner.trim() || undefined,
+      storageLocationId: editItemForm.value.storageLocationId || undefined
+    })
+  } else {
+    await equipmentStore.updateEquipment(detailItemId.value, {
+      name: editItemForm.value.name.trim(),
+      specifications: editItemForm.value.specifications.trim() || undefined,
+      currentStock: editItemForm.value.currentStock,
+      owner: editItemForm.value.owner.trim() || undefined,
+      storageLocationId: editItemForm.value.storageLocationId || undefined
+    })
+  }
+  showEditItemModal.value = false
+}
+
+function getEquipmentSpecs(equipmentId: string): string | undefined {
+  return equipmentStore.equipmentById(equipmentId)?.specifications
+}
+
+function getEquipmentOwner(equipmentId: string): string | undefined {
+  return equipmentStore.equipmentById(equipmentId)?.owner
+}
+
+function getEquipmentLocation(equipmentId: string): string | undefined {
+  const locId = equipmentStore.equipmentById(equipmentId)?.storageLocationId
+  return locId ? locationStore.locationById(locId)?.name : undefined
 }
 
 function getCategoryName(): string {
@@ -704,9 +972,14 @@ async function removeSketch() {
             </span>
           </div>
           <BaseProgress
-            :value="taskStore.projectProgress(projectId)"
+            :value="projectProgressValue"
             color="status"
           />
+          <div v-if="totalProjectDuration > 0" class="flex items-center gap-2 mt-2 text-xs">
+            <span class="text-forest-400 font-medium">{{ formatDuration(completedProjectDuration) }}</span>
+            <span class="text-earth-600">/</span>
+            <span class="text-earth-500">{{ formatDuration(totalProjectDuration) }}</span>
+          </div>
         </div>
       </BaseCard>
 
@@ -799,7 +1072,15 @@ async function removeSketch() {
       <!-- Tasks section -->
       <div class="mb-4">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-lg font-semibold text-earth-100">Aufgaben</h2>
+          <div class="flex items-center gap-3">
+            <h2 class="text-lg font-semibold text-earth-100">Aufgaben</h2>
+            <span v-if="totalProjectDuration > 0" class="text-xs flex items-center gap-1">
+              <Clock class="w-3 h-3 text-earth-500" />
+              <span class="text-forest-400">{{ formatDuration(completedProjectDuration) }}</span>
+              <span class="text-earth-600">/</span>
+              <span class="text-earth-500">{{ formatDuration(totalProjectDuration) }}</span>
+            </span>
+          </div>
           <BaseButton size="sm" @click="showAddTask = true">
             <Plus class="w-4 h-4" />
             Hinzufügen
@@ -827,18 +1108,58 @@ async function removeSketch() {
                   <p v-if="task.description" class="text-sm text-earth-400 mt-0.5">
                     {{ task.description }}
                   </p>
-                  <div v-if="task.duration || task.manpower > 1" class="flex items-center gap-3 mt-1">
+                  <div class="flex items-center gap-2 mt-1.5 flex-wrap">
                     <span v-if="task.duration" class="text-xs text-earth-500 flex items-center gap-1">
                       <Clock class="w-3 h-3" />
                       {{ formatDuration(task.duration) }}
                     </span>
-                    <span v-if="task.manpower > 1" class="text-xs text-earth-500 flex items-center gap-1">
+                    <template v-if="task.assignees && task.assignees.length > 0">
+                      <span
+                        v-for="person in task.assignees"
+                        :key="person"
+                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-forest-900/40 text-forest-300 text-xs border border-forest-700/40"
+                      >
+                        {{ person }}
+                        <button
+                          class="text-forest-500 hover:text-red-400 transition-colors"
+                          @click.stop="removeTaskAssigneeInline(task.id, person)"
+                        >
+                          <X class="w-3 h-3" />
+                        </button>
+                      </span>
+                    </template>
+                    <span v-else-if="task.manpower > 1" class="text-xs text-earth-500 flex items-center gap-1">
                       <Users class="w-3 h-3" />
                       {{ task.manpower }} Personen
                     </span>
+                    <!-- Quick-add person button -->
+                    <div class="relative">
+                      <button
+                        class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full border border-dashed border-earth-600 text-earth-500 text-xs hover:border-forest-500 hover:text-forest-400 transition-colors"
+                        @click.stop="toggleInlineAssign(task.id)"
+                      >
+                        <Plus class="w-3 h-3" />
+                        Person
+                      </button>
+                      <!-- Dropdown with available persons -->
+                      <div
+                        v-if="inlineAssignTaskId === task.id && getAvailablePersonsForTask(task.id).length > 0"
+                        class="absolute left-0 top-full mt-1 z-20 min-w-[10rem] max-h-40 overflow-y-auto rounded-xl bg-deep-300 border border-deep-50/30 shadow-xl"
+                      >
+                        <button
+                          v-for="person in getAvailablePersonsForTask(task.id)"
+                          :key="person"
+                          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-earth-200 hover:bg-forest-900/40 hover:text-forest-300 transition-colors text-left"
+                          @click.stop="quickAssignPerson(task.id, person)"
+                        >
+                          <Plus class="w-3 h-3 text-forest-500" />
+                          {{ person }}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div class="flex gap-1">
+                <div class="flex gap-1 flex-shrink-0">
                   <button
                     class="p-2.5 rounded-lg text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
                     @click="startEditTask(task)"
@@ -883,38 +1204,57 @@ async function removeSketch() {
             <div
               v-for="req in materialReqs"
               :key="req.id"
-              class="flex items-center justify-between px-4 py-3"
+              class="px-4 py-3"
             >
-              <div class="flex items-center gap-2 flex-1 min-w-0">
-                <Package class="w-4 h-4 text-forest-400 flex-shrink-0" />
-                <span class="text-earth-200 truncate">{{ getMaterialName(req.materialId) }}</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <span
-                  :class="[
-                    'font-medium tabular-nums',
-                    getMaterialStock(req.materialId) >= req.requiredAmount
-                      ? 'text-green-400'
-                      : 'text-amber-400'
-                  ]"
+              <div class="flex items-center justify-between gap-2">
+                <div
+                  class="flex items-center gap-2 flex-1 min-w-0 cursor-pointer hover:bg-deep-50/50 -mx-1 px-1 py-0.5 rounded transition-colors"
+                  @click="openItemDetail('material', req.materialId)"
                 >
-                  {{ getMaterialStock(req.materialId) }}/{{ req.requiredAmount }}
-                </span>
-                <span v-if="getMaterialUnit(req.materialId)" class="text-earth-500 text-sm">
-                  {{ getMaterialUnit(req.materialId) }}
-                </span>
-                <button
-                  class="p-2 rounded text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
-                  @click="startEditReq(req.id, 'material', req.requiredAmount)"
-                >
-                  <Edit3 class="w-4 h-4" />
-                </button>
-                <button
-                  class="p-2 rounded text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
-                  @click="deleteReq(req.id, 'material')"
-                >
-                  <Trash2 class="w-4 h-4" />
-                </button>
+                  <Package class="w-4 h-4 text-forest-400 flex-shrink-0" />
+                  <div class="flex-1 min-w-0">
+                    <p class="text-earth-200 font-medium truncate">{{ getMaterialName(req.materialId) }}</p>
+                    <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <span v-if="getMaterialSpecs(req.materialId)" class="text-xs text-earth-500">
+                        {{ getMaterialSpecs(req.materialId) }}
+                      </span>
+                      <span v-if="getMaterialOwner(req.materialId)" class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-900/30 text-amber-400 text-xs">
+                        {{ getMaterialOwner(req.materialId) }}
+                      </span>
+                      <span v-if="getMaterialLocation(req.materialId)" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-forest-900/30 text-forest-400 text-xs">
+                        <MapPin class="w-2.5 h-2.5" />
+                        {{ getMaterialLocation(req.materialId) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                  <span
+                    :class="[
+                      'font-medium tabular-nums text-sm',
+                      getMaterialStock(req.materialId) >= req.requiredAmount
+                        ? 'text-green-400'
+                        : 'text-amber-400'
+                    ]"
+                  >
+                    {{ getMaterialStock(req.materialId) }}/{{ req.requiredAmount }}
+                  </span>
+                  <span v-if="getMaterialUnit(req.materialId)" class="text-earth-500 text-xs">
+                    {{ getMaterialUnit(req.materialId) }}
+                  </span>
+                  <button
+                    class="p-1.5 rounded text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
+                    @click="startEditReq(req.id, 'material', req.requiredAmount)"
+                  >
+                    <Edit3 class="w-4 h-4" />
+                  </button>
+                  <button
+                    class="p-1.5 rounded text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
+                    @click="deleteReq(req.id, 'material')"
+                  >
+                    <Trash2 class="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -922,36 +1262,55 @@ async function removeSketch() {
             <div
               v-for="req in equipmentReqs"
               :key="req.id"
-              class="flex items-center justify-between px-4 py-3"
+              class="px-4 py-3"
             >
-              <div class="flex items-center gap-2 flex-1 min-w-0">
-                <Backpack class="w-4 h-4 text-amber-400 flex-shrink-0" />
-                <span class="text-earth-200 truncate">{{ getEquipmentName(req.equipmentId) }}</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <span
-                  :class="[
-                    'font-medium tabular-nums',
-                    getEquipmentStock(req.equipmentId) >= req.requiredAmount
-                      ? 'text-green-400'
-                      : 'text-amber-400'
-                  ]"
+              <div class="flex items-center justify-between gap-2">
+                <div
+                  class="flex items-center gap-2 flex-1 min-w-0 cursor-pointer hover:bg-deep-50/50 -mx-1 px-1 py-0.5 rounded transition-colors"
+                  @click="openItemDetail('equipment', req.equipmentId)"
                 >
-                  {{ getEquipmentStock(req.equipmentId) }}/{{ req.requiredAmount }}
-                </span>
-                <span class="text-earth-500 text-sm">Stück</span>
-                <button
-                  class="p-2 rounded text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
-                  @click="startEditReq(req.id, 'equipment', req.requiredAmount)"
-                >
-                  <Edit3 class="w-4 h-4" />
-                </button>
-                <button
-                  class="p-2 rounded text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
-                  @click="deleteReq(req.id, 'equipment')"
-                >
-                  <Trash2 class="w-4 h-4" />
-                </button>
+                  <Backpack class="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  <div class="flex-1 min-w-0">
+                    <p class="text-earth-200 font-medium truncate">{{ getEquipmentName(req.equipmentId) }}</p>
+                    <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <span v-if="getEquipmentSpecs(req.equipmentId)" class="text-xs text-earth-500">
+                        {{ getEquipmentSpecs(req.equipmentId) }}
+                      </span>
+                      <span v-if="getEquipmentOwner(req.equipmentId)" class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-900/30 text-amber-400 text-xs">
+                        {{ getEquipmentOwner(req.equipmentId) }}
+                      </span>
+                      <span v-if="getEquipmentLocation(req.equipmentId)" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-forest-900/30 text-forest-400 text-xs">
+                        <MapPin class="w-2.5 h-2.5" />
+                        {{ getEquipmentLocation(req.equipmentId) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                  <span
+                    :class="[
+                      'font-medium tabular-nums text-sm',
+                      getEquipmentStock(req.equipmentId) >= req.requiredAmount
+                        ? 'text-green-400'
+                        : 'text-amber-400'
+                    ]"
+                  >
+                    {{ getEquipmentStock(req.equipmentId) }}/{{ req.requiredAmount }}
+                  </span>
+                  <span class="text-earth-500 text-xs">Stk</span>
+                  <button
+                    class="p-1.5 rounded text-earth-500 hover:text-forest-400 hover:bg-forest-900/30 transition-colors"
+                    @click="startEditReq(req.id, 'equipment', req.requiredAmount)"
+                  >
+                    <Edit3 class="w-4 h-4" />
+                  </button>
+                  <button
+                    class="p-1.5 rounded text-earth-500 hover:text-red-400 hover:bg-red-900/30 transition-colors"
+                    @click="deleteReq(req.id, 'equipment')"
+                  >
+                    <Trash2 class="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -973,6 +1332,46 @@ async function removeSketch() {
       @close="showAddTask = false; resetTaskForm()"
     >
       <div class="space-y-4">
+        <!-- Task templates button -->
+        <div v-if="taskTemplates.length > 0 && !showTaskTemplates">
+          <button
+            type="button"
+            class="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-deep-100 text-earth-400 hover:border-forest-500 hover:text-forest-400 transition-colors"
+            @click="showTaskTemplates = true"
+          >
+            <Copy class="w-4 h-4" />
+            <span>Aus früherer Aufgabe übernehmen</span>
+          </button>
+        </div>
+
+        <!-- Template list -->
+        <div v-if="showTaskTemplates" class="max-h-40 overflow-y-auto space-y-1">
+          <button
+            v-for="tpl in taskTemplates"
+            :key="tpl.id"
+            type="button"
+            class="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-deep-100 bg-deep-200 hover:border-forest-500 transition-all text-left"
+            @click="applyTaskTemplate(tpl)"
+          >
+            <CheckCircle2 class="w-4 h-4 text-green-400 flex-shrink-0" />
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-earth-200 truncate">{{ tpl.title }}</p>
+              <div class="flex items-center gap-2 text-xs text-earth-500">
+                <span v-if="tpl.duration">{{ formatDuration(tpl.duration) }}</span>
+                <span v-if="tpl.assignees && tpl.assignees.length > 0">{{ tpl.assignees.join(', ') }}</span>
+                <span v-else-if="tpl.manpower > 1">{{ tpl.manpower }} Pers.</span>
+              </div>
+            </div>
+          </button>
+          <button
+            type="button"
+            class="w-full text-center text-sm text-earth-500 py-2"
+            @click="showTaskTemplates = false"
+          >
+            Abbrechen
+          </button>
+        </div>
+
         <BaseInput
           v-model="newTaskTitle"
           label="Aufgabe"
@@ -984,6 +1383,45 @@ async function removeSketch() {
           placeholder="Weitere Informationen..."
           :rows="2"
         />
+
+        <!-- Assignees -->
+        <div>
+          <label class="text-sm font-medium text-earth-200 mb-2 block">Zugewiesen an (optional)</label>
+          <div v-if="newTaskAssignees.length > 0" class="flex flex-wrap gap-2 mb-2">
+            <span
+              v-for="(person, i) in newTaskAssignees"
+              :key="i"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-forest-900/40 text-forest-300 text-sm border border-forest-700/40"
+            >
+              {{ person }}
+              <button
+                type="button"
+                class="text-forest-500 hover:text-red-400 transition-colors"
+                @click="removeNewTaskAssignee(i)"
+              >
+                <X class="w-3.5 h-3.5" />
+              </button>
+            </span>
+          </div>
+          <div class="flex gap-2">
+            <div class="flex-1">
+              <BaseComboInput
+                v-model="newTaskAssignee"
+                :suggestions="newTaskAssigneeSuggestions"
+                placeholder="Name eingeben..."
+                @enter="addNewTaskAssignee"
+              />
+            </div>
+            <BaseButton
+              type="button"
+              :disabled="!newTaskAssignee.trim()"
+              @click="addNewTaskAssignee"
+            >
+              <Plus class="w-5 h-5" />
+            </BaseButton>
+          </div>
+        </div>
+
         <div class="grid grid-cols-2 gap-4">
           <BaseInput
             v-model.number="newTaskDuration"
@@ -991,12 +1429,17 @@ async function removeSketch() {
             label="Dauer (Minuten)"
             placeholder="60"
           />
-          <BaseInput
-            v-model.number="newTaskManpower"
-            type="number"
-            label="Personen"
-            placeholder="1"
-          />
+          <div :class="{ 'opacity-40 pointer-events-none': newTaskAssignees.length > 0 }">
+            <BaseInput
+              v-model.number="newTaskManpower"
+              type="number"
+              label="Personen"
+              :placeholder="newTaskAssignees.length > 0 ? String(newTaskAssignees.length) : '1'"
+            />
+            <p v-if="newTaskAssignees.length > 0" class="text-xs text-earth-500 mt-1">
+              Automatisch: {{ newTaskAssignees.length }}
+            </p>
+          </div>
         </div>
       </div>
       <template #footer>
@@ -1037,6 +1480,45 @@ async function removeSketch() {
           placeholder="Weitere Informationen..."
           :rows="2"
         />
+
+        <!-- Assignees -->
+        <div>
+          <label class="text-sm font-medium text-earth-200 mb-2 block">Zugewiesen an (optional)</label>
+          <div v-if="editTaskAssignees.length > 0" class="flex flex-wrap gap-2 mb-2">
+            <span
+              v-for="(person, i) in editTaskAssignees"
+              :key="i"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-forest-900/40 text-forest-300 text-sm border border-forest-700/40"
+            >
+              {{ person }}
+              <button
+                type="button"
+                class="text-forest-500 hover:text-red-400 transition-colors"
+                @click="removeEditTaskAssignee(i)"
+              >
+                <X class="w-3.5 h-3.5" />
+              </button>
+            </span>
+          </div>
+          <div class="flex gap-2">
+            <div class="flex-1">
+              <BaseComboInput
+                v-model="editTaskAssignee"
+                :suggestions="editTaskAssigneeSuggestions"
+                placeholder="Name eingeben..."
+                @enter="addEditTaskAssignee"
+              />
+            </div>
+            <BaseButton
+              type="button"
+              :disabled="!editTaskAssignee.trim()"
+              @click="addEditTaskAssignee"
+            >
+              <Plus class="w-5 h-5" />
+            </BaseButton>
+          </div>
+        </div>
+
         <div class="grid grid-cols-2 gap-4">
           <BaseInput
             v-model.number="editTaskDuration"
@@ -1044,12 +1526,17 @@ async function removeSketch() {
             label="Dauer (Minuten)"
             placeholder="60"
           />
-          <BaseInput
-            v-model.number="editTaskManpower"
-            type="number"
-            label="Personen"
-            placeholder="1"
-          />
+          <div :class="{ 'opacity-40 pointer-events-none': editTaskAssignees.length > 0 }">
+            <BaseInput
+              v-model.number="editTaskManpower"
+              type="number"
+              label="Personen"
+              :placeholder="editTaskAssignees.length > 0 ? String(editTaskAssignees.length) : '1'"
+            />
+            <p v-if="editTaskAssignees.length > 0" class="text-xs text-earth-500 mt-1">
+              Automatisch: {{ editTaskAssignees.length }}
+            </p>
+          </div>
         </div>
       </div>
       <template #footer>
@@ -1309,6 +1796,129 @@ async function removeSketch() {
             @click="deleteProject"
           >
             Löschen
+          </BaseButton>
+        </div>
+      </template>
+    </BaseModal>
+
+    <!-- Item detail modal -->
+    <BaseModal
+      :open="showItemDetail"
+      :title="detailItem?.name || 'Details'"
+      centered
+      @close="showItemDetail = false"
+    >
+      <div v-if="detailItem" class="space-y-4">
+        <div v-if="detailItem.specifications">
+          <p class="text-xs text-earth-500 mb-1">Details</p>
+          <p class="text-earth-200">{{ detailItem.specifications }}</p>
+        </div>
+
+        <div class="flex gap-6 flex-wrap">
+          <div>
+            <p class="text-xs text-earth-500 mb-1">Bestand</p>
+            <p class="text-earth-200 font-medium">
+              {{ detailItem.currentStock }} {{ detailItem.unit || 'Stück' }}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs text-earth-500 mb-1">Benötigt</p>
+            <p class="text-earth-200 font-medium">
+              {{ detailItem.totalRequired }} {{ detailItem.unit || 'Stück' }}
+            </p>
+          </div>
+          <div v-if="detailItem.owner">
+            <p class="text-xs text-earth-500 mb-1">Eigentümer</p>
+            <p class="text-amber-400 font-medium">{{ detailItem.owner }}</p>
+          </div>
+          <div v-if="detailItem.locationName">
+            <p class="text-xs text-earth-500 mb-1">Lagerort</p>
+            <p class="text-forest-400 font-medium">{{ detailItem.locationName }}</p>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-xs text-earth-500 mb-2">Zugewiesen an Projekte</p>
+          <div v-if="detailItem.projects.length > 0" class="space-y-2">
+            <div
+              v-for="(proj, i) in detailItem.projects"
+              :key="i"
+              class="flex items-center justify-between bg-deep-100/50 rounded-lg px-3 py-2"
+            >
+              <span class="text-earth-200 text-sm">{{ proj.name }}</span>
+              <span class="text-earth-400 text-sm">{{ proj.amount }} {{ detailItem.unit || 'Stück' }}</span>
+            </div>
+          </div>
+          <p v-else class="text-earth-500 text-sm">Keinem Projekt zugewiesen</p>
+        </div>
+      </div>
+      <template #footer>
+        <BaseButton
+          full-width
+          @click="openEditItem"
+        >
+          <Edit3 class="w-4 h-4" />
+          Bearbeiten
+        </BaseButton>
+      </template>
+    </BaseModal>
+
+    <!-- Edit item modal -->
+    <BaseModal
+      :open="showEditItemModal"
+      :title="detailItemType === 'material' ? 'Material bearbeiten' : 'Ausrüstung bearbeiten'"
+      @close="showEditItemModal = false"
+    >
+      <form @submit.prevent="saveEditItem" class="space-y-4">
+        <BaseInput
+          v-model="editItemForm.name"
+          label="Name"
+          required
+        />
+        <BaseInput
+          v-model="editItemForm.specifications"
+          label="Maße / Spezifikation (optional)"
+          placeholder="z.B. 2 Meter gerade"
+        />
+        <BaseSelect
+          v-if="detailItemType === 'material'"
+          v-model="editItemForm.unit"
+          label="Einheit (optional)"
+          :groups="unitGroups"
+          empty-label="Keine Einheit"
+        />
+        <BaseComboInput
+          v-model="editItemForm.owner"
+          :suggestions="knownPersons"
+          label="Eigentümer (optional)"
+          placeholder="z.B. Moritz, Tim"
+        />
+        <BaseSelect
+          v-model="editItemForm.storageLocationId"
+          label="Lagerort (optional)"
+          :options="locationOptions"
+          empty-label="Kein Lagerort"
+        />
+        <BaseNumberStepper
+          v-model="editItemForm.currentStock"
+          label="Aktueller Bestand"
+        />
+      </form>
+      <template #footer>
+        <div class="flex gap-3">
+          <BaseButton
+            variant="secondary"
+            full-width
+            @click="showEditItemModal = false"
+          >
+            Abbrechen
+          </BaseButton>
+          <BaseButton
+            full-width
+            :disabled="!editItemForm.name.trim()"
+            @click="saveEditItem"
+          >
+            Speichern
           </BaseButton>
         </div>
       </template>

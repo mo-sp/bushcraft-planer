@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { useOnline } from '@vueuse/core'
 import { Capacitor } from '@capacitor/core'
 import {
-  Cloud, CloudOff, Database, Trash2, Info, RefreshCw, UserCog, X
+  Cloud, CloudOff, Database, Trash2, Info, RefreshCw, UserCog, X, VolumeX, Volume2
 } from 'lucide-vue-next'
 import { db } from '@shared/api/db'
 import { isSupabaseConfigured } from '@shared/api/supabase'
@@ -11,6 +11,7 @@ import { useProjectStore } from '@entities/project/model/store'
 import { useMaterialStore } from '@entities/material/model/store'
 import { useEquipmentStore } from '@entities/equipment/model/store'
 import { useStorageLocationStore } from '@entities/storage-location/model/store'
+import { useTaskStore } from '@entities/task/model/store'
 import { useSync } from '@features/sync-data'
 import { BaseCard, BaseButton, BaseModal, BaseComboInput } from '@shared/ui'
 import { useKnownPersons } from '@shared/lib/useKnownPersons'
@@ -21,11 +22,19 @@ const projectStore = useProjectStore()
 const materialStore = useMaterialStore()
 const equipmentStore = useEquipmentStore()
 const storageLocationStore = useStorageLocationStore()
+const taskStore = useTaskStore()
 const showClearConfirm = ref(false)
 const isClearing = ref(false)
+const introSongMuted = ref(localStorage.getItem('introSongMuted') === 'true')
+
+function toggleIntroSongMute() {
+  introSongMuted.value = !introSongMuted.value
+  localStorage.setItem('introSongMuted', String(introSongMuted.value))
+}
 
 const { isSyncing, lastSyncedAt, syncError, fullSync } = useSync()
-const { knownPersons } = useKnownPersons()
+const { knownPersons, addPerson, removeManualPerson } = useKnownPersons()
+const newPersonName = ref('')
 const syncMessage = ref<string | null>(null)
 
 // Person rename
@@ -75,6 +84,16 @@ async function renamePerson() {
     }
   }
 
+  // Rename in task assignees
+  for (const t of taskStore.tasks) {
+    if (t.assignees?.includes(oldName)) {
+      await taskStore.updateTask(t.id, {
+        assignees: t.assignees.map(n => n === oldName ? newName : n)
+      })
+      count++
+    }
+  }
+
   renameResult.value = `"${oldName}" → "${newName}" (${count} Einträge aktualisiert)`
   renameFrom.value = ''
   renameTo.value = ''
@@ -115,6 +134,16 @@ async function deletePerson(name: string) {
     }
   }
 
+  // Remove from task assignees
+  for (const t of taskStore.tasks) {
+    if (t.assignees?.includes(name)) {
+      await taskStore.updateTask(t.id, {
+        assignees: t.assignees.filter(n => n !== name)
+      })
+    }
+  }
+
+  removeManualPerson(name)
   showDeletePersonConfirm.value = null
 }
 
@@ -132,7 +161,8 @@ async function handleSync() {
       projectStore.loadProjects(),
       materialStore.loadMaterials(),
       equipmentStore.loadEquipment(),
-      storageLocationStore.loadLocations()
+      storageLocationStore.loadLocations(),
+      taskStore.loadTasks()
     ])
   }
 }
@@ -171,7 +201,8 @@ async function clearAllData() {
       projectStore.loadProjects(),
       materialStore.loadMaterials(),
       equipmentStore.loadEquipment(),
-      storageLocationStore.loadLocations()
+      storageLocationStore.loadLocations(),
+      taskStore.loadTasks()
     ])
     showClearConfirm.value = false
   } finally {
@@ -261,13 +292,13 @@ async function clearAllData() {
     </BaseCard>
 
     <!-- Person management -->
-    <BaseCard v-if="knownPersons.length > 0" class="mb-4">
+    <BaseCard class="mb-4">
       <div class="flex items-center gap-3 mb-4">
         <UserCog class="w-5 h-5 text-earth-400" />
         <h3 class="font-medium text-earth-100">Personen</h3>
       </div>
 
-      <div class="flex flex-wrap gap-2 mb-3">
+      <div v-if="knownPersons.length > 0" class="flex flex-wrap gap-2 mb-3">
         <span
           v-for="person in knownPersons"
           :key="person"
@@ -282,8 +313,28 @@ async function clearAllData() {
           </button>
         </span>
       </div>
+      <p v-else class="text-sm text-earth-500 mb-3">Noch keine Personen vorhanden.</p>
+
+      <!-- Add person -->
+      <form class="flex gap-2 mb-3" @submit.prevent="addPerson(newPersonName); newPersonName = ''">
+        <BaseComboInput
+          v-model="newPersonName"
+          :suggestions="[]"
+          placeholder="Neue Person..."
+          class="flex-1"
+          @enter="addPerson(newPersonName); newPersonName = ''"
+        />
+        <BaseButton
+          variant="primary"
+          :disabled="!newPersonName.trim() || knownPersons.includes(newPersonName.trim())"
+          @click="addPerson(newPersonName); newPersonName = ''"
+        >
+          Hinzufügen
+        </BaseButton>
+      </form>
 
       <BaseButton
+        v-if="knownPersons.length > 0"
         variant="secondary"
         full-width
         @click="showRenameModal = true; renameResult = null"
@@ -291,6 +342,33 @@ async function clearAllData() {
         <UserCog class="w-5 h-5" />
         Person umbenennen
       </BaseButton>
+    </BaseCard>
+
+    <!-- Sound settings -->
+    <BaseCard class="mb-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <component :is="introSongMuted ? VolumeX : Volume2" class="w-5 h-5 text-earth-400" />
+          <div>
+            <h3 class="font-medium text-earth-100">Intro-Song</h3>
+            <p class="text-sm text-earth-400">Sound beim App-Start</p>
+          </div>
+        </div>
+        <button
+          :class="[
+            'relative w-12 h-7 rounded-full transition-colors',
+            introSongMuted ? 'bg-deep-100' : 'bg-forest-600'
+          ]"
+          @click="toggleIntroSongMute"
+        >
+          <span
+            :class="[
+              'absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform',
+              introSongMuted ? 'left-0.5' : 'left-5.5'
+            ]"
+          />
+        </button>
+      </div>
     </BaseCard>
 
     <!-- App info -->

@@ -42,8 +42,10 @@ function handleTouch() {
   if (showHint.value) dismiss()
 }
 
+const isMuted = localStorage.getItem('introSongMuted') === 'true'
+
 onMounted(() => {
-  if (audioRef.value) {
+  if (audioRef.value && !isMuted) {
     audioRef.value.volume = 0.7
     audioRef.value.play().catch(() => {
       // Autoplay may be blocked - that's ok

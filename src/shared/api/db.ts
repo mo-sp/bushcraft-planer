@@ -57,6 +57,18 @@ class BushcraftDatabase extends Dexie {
       storageLocations: 'id, name, createdAt, updatedAt, syncedAt',
       syncMeta: 'id, table, action, timestamp, synced'
     })
+
+    // Version 4: Add assignees on tasks
+    this.version(4).stores({
+      projects: 'id, name, category, status, createdAt, updatedAt, syncedAt',
+      tasks: 'id, projectId, order, isCompleted, createdAt, updatedAt, syncedAt',
+      materials: 'id, name, owner, storageLocationId, createdAt, updatedAt, syncedAt',
+      materialRequirements: 'id, materialId, projectId, createdAt, updatedAt, syncedAt',
+      equipment: 'id, name, owner, storageLocationId, createdAt, updatedAt, syncedAt',
+      equipmentRequirements: 'id, equipmentId, projectId, createdAt, updatedAt, syncedAt',
+      storageLocations: 'id, name, createdAt, updatedAt, syncedAt',
+      syncMeta: 'id, table, action, timestamp, synced'
+    })
   }
 }
 

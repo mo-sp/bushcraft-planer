@@ -5,6 +5,7 @@ export interface Task {
   description?: string
   duration?: number        // Geplante Dauer in Minuten
   manpower: number         // Benötigte Mannstärke (default 1)
+  assignees?: string[]     // Assigned persons (when set, manpower = assignees.length)
   isCompleted: boolean
   order: number
   createdAt: Date
@@ -18,6 +19,7 @@ export interface CreateTaskInput {
   description?: string
   duration?: number
   manpower?: number
+  assignees?: string[]
 }
 
 export interface UpdateTaskInput {
@@ -25,6 +27,7 @@ export interface UpdateTaskInput {
   description?: string
   duration?: number
   manpower?: number
+  assignees?: string[]
   isCompleted?: boolean
   order?: number
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Building2, Compass, Hammer, FolderPlus, Plus, Package, Backpack, Trash2, Search, Pencil, ImagePlus, X, Clock, Users } from 'lucide-vue-next'
+import { ArrowLeft, Building2, Compass, Hammer, FolderPlus, Plus, Package, Backpack, Trash2, Search, Pencil, ImagePlus, X, Clock, Users, Copy, CheckCircle2 } from 'lucide-vue-next'
 import { useProjectStore } from '@entities/project/model/store'
 import { useMaterialStore } from '@entities/material/model/store'
 import { useEquipmentStore } from '@entities/equipment/model/store'
@@ -16,6 +16,7 @@ interface PlannedTask {
   title: string
   duration?: number
   manpower: number
+  assignees?: string[]
 }
 
 import { compressImage } from '@shared/lib/imageUtils'
@@ -91,15 +92,9 @@ function getCategoryIcon(key: string) {
   return categoryIcons[key] || FolderPlus
 }
 
-// Categories: default ones + custom ones from store, always with "Neue Kategorie" at end
+// Categories: all known ones (defaults + custom from localStorage + derived from projects) + "Neue Kategorie"
 const displayCategories = computed(() => {
-  const defaults: Record<string, string> = {
-    construction: 'Bauprojekte',
-    exploration: 'Erkundung',
-    tools: 'Werkzeuge & Ausrüstung'
-  }
-  const customs = { ...projectStore.customCategories }
-  return { ...defaults, ...customs, custom: 'Neue Kategorie' }
+  return { ...projectStore.allCategories, custom: 'Neue Kategorie' }
 })
 
 const isValid = computed(() => {
@@ -308,18 +303,67 @@ const showTaskModal = ref(false)
 const showEditTaskModal = ref(false)
 const editingTaskIndex = ref<number | null>(null)
 const taskForm = ref({ title: '', duration: 0, manpower: 1 })
+const taskAssignees = ref<string[]>([])
+const taskAssignee = ref('')
+const showTaskTemplates = ref(false)
+
+// Task assignee suggestions: known persons minus already assigned
+const taskAssigneeSuggestions = computed(() =>
+  knownPersons.value.filter(p => !taskAssignees.value.includes(p))
+)
+
+// Task templates: completed tasks from all projects (unique by title)
+const taskTemplates = computed(() => {
+  const seen = new Set<string>()
+  return taskStore.tasks
+    .filter(t => t.isCompleted)
+    .filter(t => {
+      const key = t.title.toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .sort((a, b) => a.title.localeCompare(b.title))
+})
+
+function applyTaskTemplate(template: { title: string; description?: string; duration?: number; manpower: number; assignees?: string[] }) {
+  taskForm.value = {
+    title: template.title,
+    duration: template.duration ?? 0,
+    manpower: template.manpower
+  }
+  taskAssignees.value = template.assignees ? [...template.assignees] : []
+  showTaskTemplates.value = false
+}
+
+function addTaskAssignee() {
+  const name = taskAssignee.value.trim()
+  if (name && !taskAssignees.value.includes(name)) {
+    taskAssignees.value.push(name)
+  }
+  taskAssignee.value = ''
+}
+
+function removeTaskAssignee(index: number) {
+  taskAssignees.value.splice(index, 1)
+}
 
 function openAddTaskModal() {
   taskForm.value = { title: '', duration: 0, manpower: 1 }
+  taskAssignees.value = []
+  taskAssignee.value = ''
+  showTaskTemplates.value = false
   showTaskModal.value = true
 }
 
 function confirmAddTask() {
   if (!taskForm.value.title.trim()) return
+  const assignees = taskAssignees.value.length > 0 ? [...taskAssignees.value] : undefined
   plannedTasks.value.push({
     title: taskForm.value.title.trim(),
     duration: taskForm.value.duration,
-    manpower: taskForm.value.manpower
+    manpower: assignees ? assignees.length : taskForm.value.manpower,
+    assignees
   })
   showTaskModal.value = false
 }
@@ -329,15 +373,19 @@ function openEditTaskModal(index: number) {
   if (!task) return
   editingTaskIndex.value = index
   taskForm.value = { title: task.title, duration: task.duration ?? 0, manpower: task.manpower }
+  taskAssignees.value = task.assignees ? [...task.assignees] : []
+  taskAssignee.value = ''
   showEditTaskModal.value = true
 }
 
 function confirmEditTask() {
   if (editingTaskIndex.value === null || !taskForm.value.title.trim()) return
+  const assignees = taskAssignees.value.length > 0 ? [...taskAssignees.value] : undefined
   plannedTasks.value[editingTaskIndex.value] = {
     title: taskForm.value.title.trim(),
     duration: taskForm.value.duration,
-    manpower: taskForm.value.manpower
+    manpower: assignees ? assignees.length : taskForm.value.manpower,
+    assignees
   }
   showEditTaskModal.value = false
   editingTaskIndex.value = null
@@ -423,7 +471,8 @@ async function submit() {
           projectId: project.id,
           title: task.title,
           duration: task.duration,
-          manpower: task.manpower
+          manpower: task.manpower,
+          assignees: task.assignees
         })
       }
 
@@ -588,12 +637,21 @@ function goBack() {
             <div class="flex items-center justify-between gap-3">
               <div class="flex-1 min-w-0">
                 <p class="font-medium text-earth-100 truncate">{{ task.title }}</p>
-                <div class="flex items-center gap-3 text-sm text-earth-400">
+                <div class="flex items-center gap-2 text-sm text-earth-400 flex-wrap">
                   <span v-if="task.duration" class="flex items-center gap-1">
                     <Clock class="w-3.5 h-3.5" />
                     {{ formatDuration(task.duration) }}
                   </span>
-                  <span v-if="task.manpower > 1" class="flex items-center gap-1">
+                  <template v-if="task.assignees && task.assignees.length > 0">
+                    <span
+                      v-for="person in task.assignees"
+                      :key="person"
+                      class="inline-flex items-center px-2 py-0.5 rounded-full bg-forest-900/40 text-forest-300 text-xs border border-forest-700/40"
+                    >
+                      {{ person }}
+                    </span>
+                  </template>
+                  <span v-else-if="task.manpower > 1" class="flex items-center gap-1">
                     <Users class="w-3.5 h-3.5" />
                     {{ task.manpower }} Personen
                   </span>
@@ -1026,23 +1084,107 @@ function goBack() {
       @close="showTaskModal = false"
     >
       <form @submit.prevent="confirmAddTask" class="space-y-4">
+        <!-- Task templates button -->
+        <div v-if="taskTemplates.length > 0 && !showTaskTemplates">
+          <button
+            type="button"
+            class="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-deep-100 text-earth-400 hover:border-forest-500 hover:text-forest-400 transition-colors"
+            @click="showTaskTemplates = true"
+          >
+            <Copy class="w-4 h-4" />
+            <span>Aus früherer Aufgabe übernehmen</span>
+          </button>
+        </div>
+
+        <!-- Template list -->
+        <div v-if="showTaskTemplates" class="max-h-40 overflow-y-auto space-y-1">
+          <button
+            v-for="tpl in taskTemplates"
+            :key="tpl.id"
+            type="button"
+            class="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-deep-100 bg-deep-200 hover:border-forest-500 transition-all text-left"
+            @click="applyTaskTemplate(tpl)"
+          >
+            <CheckCircle2 class="w-4 h-4 text-green-400 flex-shrink-0" />
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-earth-200 truncate">{{ tpl.title }}</p>
+              <div class="flex items-center gap-2 text-xs text-earth-500">
+                <span v-if="tpl.duration">{{ formatDuration(tpl.duration) }}</span>
+                <span v-if="tpl.assignees && tpl.assignees.length > 0">{{ tpl.assignees.join(', ') }}</span>
+                <span v-else-if="tpl.manpower > 1">{{ tpl.manpower }} Pers.</span>
+              </div>
+            </div>
+          </button>
+          <button
+            type="button"
+            class="w-full text-center text-sm text-earth-500 py-2"
+            @click="showTaskTemplates = false"
+          >
+            Abbrechen
+          </button>
+        </div>
+
         <BaseInput
           v-model="taskForm.title"
           label="Aufgabe"
           placeholder="z.B. Holz sammeln, Stöcke zuschneiden"
           required
         />
+
+        <!-- Assignees -->
+        <div>
+          <label class="text-sm font-medium text-earth-200 mb-2 block">Zugewiesen an (optional)</label>
+          <div v-if="taskAssignees.length > 0" class="flex flex-wrap gap-2 mb-2">
+            <span
+              v-for="(person, i) in taskAssignees"
+              :key="i"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-forest-900/40 text-forest-300 text-sm border border-forest-700/40"
+            >
+              {{ person }}
+              <button
+                type="button"
+                class="text-forest-500 hover:text-red-400 transition-colors"
+                @click="removeTaskAssignee(i)"
+              >
+                <X class="w-3.5 h-3.5" />
+              </button>
+            </span>
+          </div>
+          <div class="flex gap-2">
+            <div class="flex-1">
+              <BaseComboInput
+                v-model="taskAssignee"
+                :suggestions="taskAssigneeSuggestions"
+                placeholder="Name eingeben..."
+                @enter="addTaskAssignee"
+              />
+            </div>
+            <BaseButton
+              type="button"
+              :disabled="!taskAssignee.trim()"
+              @click="addTaskAssignee"
+            >
+              <Plus class="w-5 h-5" />
+            </BaseButton>
+          </div>
+        </div>
+
         <BaseNumberStepper
           v-model="taskForm.duration"
           :min="0"
           :step="15"
           label="Dauer (Minuten, optional)"
         />
-        <BaseNumberStepper
-          v-model="taskForm.manpower"
-          :min="1"
-          label="Mannstärke"
-        />
+        <div :class="{ 'opacity-40 pointer-events-none': taskAssignees.length > 0 }">
+          <BaseNumberStepper
+            v-model="taskForm.manpower"
+            :min="1"
+            label="Mannstärke"
+          />
+          <p v-if="taskAssignees.length > 0" class="text-xs text-earth-500 mt-1">
+            Automatisch: {{ taskAssignees.length }}
+          </p>
+        </div>
       </form>
       <template #footer>
         <div class="flex gap-3">
@@ -1077,17 +1219,61 @@ function goBack() {
           placeholder="z.B. Holz sammeln"
           required
         />
+
+        <!-- Assignees -->
+        <div>
+          <label class="text-sm font-medium text-earth-200 mb-2 block">Zugewiesen an (optional)</label>
+          <div v-if="taskAssignees.length > 0" class="flex flex-wrap gap-2 mb-2">
+            <span
+              v-for="(person, i) in taskAssignees"
+              :key="i"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-forest-900/40 text-forest-300 text-sm border border-forest-700/40"
+            >
+              {{ person }}
+              <button
+                type="button"
+                class="text-forest-500 hover:text-red-400 transition-colors"
+                @click="removeTaskAssignee(i)"
+              >
+                <X class="w-3.5 h-3.5" />
+              </button>
+            </span>
+          </div>
+          <div class="flex gap-2">
+            <div class="flex-1">
+              <BaseComboInput
+                v-model="taskAssignee"
+                :suggestions="taskAssigneeSuggestions"
+                placeholder="Name eingeben..."
+                @enter="addTaskAssignee"
+              />
+            </div>
+            <BaseButton
+              type="button"
+              :disabled="!taskAssignee.trim()"
+              @click="addTaskAssignee"
+            >
+              <Plus class="w-5 h-5" />
+            </BaseButton>
+          </div>
+        </div>
+
         <BaseNumberStepper
           v-model="taskForm.duration"
           :min="0"
           :step="15"
           label="Dauer (Minuten, optional)"
         />
-        <BaseNumberStepper
-          v-model="taskForm.manpower"
-          :min="1"
-          label="Mannstärke"
-        />
+        <div :class="{ 'opacity-40 pointer-events-none': taskAssignees.length > 0 }">
+          <BaseNumberStepper
+            v-model="taskForm.manpower"
+            :min="1"
+            label="Mannstärke"
+          />
+          <p v-if="taskAssignees.length > 0" class="text-xs text-earth-500 mt-1">
+            Automatisch: {{ taskAssignees.length }}
+          </p>
+        </div>
       </form>
       <template #footer>
         <div class="flex gap-3">

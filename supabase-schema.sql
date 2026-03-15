@@ -37,6 +37,7 @@ CREATE TABLE tasks (
   description TEXT,
   duration INTEGER,
   manpower INTEGER NOT NULL DEFAULT 1,
+  assignees TEXT[],
   is_completed BOOLEAN NOT NULL DEFAULT false,
   "order" INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -99,6 +100,9 @@ CREATE INDEX idx_equipment_requirements_equipment_id ON equipment_requirements(e
 -- Indexes for storage location lookups
 CREATE INDEX idx_materials_storage_location_id ON materials(storage_location_id);
 CREATE INDEX idx_equipment_storage_location_id ON equipment(storage_location_id);
+
+-- Migration: Add assignees to tasks (Session 10)
+-- ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assignees TEXT[];
 
 -- Disable RLS on all tables (shared data, no auth)
 ALTER TABLE storage_locations DISABLE ROW LEVEL SECURITY;

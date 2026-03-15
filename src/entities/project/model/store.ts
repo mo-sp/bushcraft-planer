@@ -80,7 +80,19 @@ export const useProjectStore = defineStore('projects', () => {
 
   function getCategoryName(category: string, customName?: string): string {
     if (customName) return customName
-    return allCategories.value[category] || category
+    if (allCategories.value[category]) return allCategories.value[category]
+    // Check localStorage directly as fallback (sync may have written it after store init)
+    try {
+      const stored = localStorage.getItem('customCategories')
+      if (stored) {
+        const customs = JSON.parse(stored) as Record<string, string>
+        if (customs[category]) {
+          customCategories.value[category] = customs[category]
+          return customs[category]
+        }
+      }
+    } catch { /* ignore */ }
+    return category
   }
 
   async function createProject(input: CreateProjectInput): Promise<Project | null> {

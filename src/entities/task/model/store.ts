@@ -66,13 +66,15 @@ export const useTaskStore = defineStore('tasks', () => {
     const existingTasks = tasks.value.filter(t => t.projectId === input.projectId)
     const maxOrder = existingTasks.reduce((max, t) => Math.max(max, t.order), -1)
 
+    const assignees = input.assignees && input.assignees.length > 0 ? input.assignees : undefined
     const task: Task = {
       id: generateId(),
       projectId: input.projectId,
       title: input.title,
       description: input.description,
       duration: input.duration,
-      manpower: input.manpower ?? 1,
+      manpower: assignees ? assignees.length : (input.manpower ?? 1),
+      assignees,
       isCompleted: false,
       order: maxOrder + 1,
       createdAt: now,

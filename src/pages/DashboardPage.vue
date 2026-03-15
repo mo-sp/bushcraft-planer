@@ -62,10 +62,6 @@ const filteredProjects = computed(() => {
   })
 })
 
-const hasFilters = computed(() => {
-  return selectedCategory.value !== 'all' || selectedStatus.value !== 'all' || selectedParticipant.value !== 'all'
-})
-
 function clearFilters() {
   selectedCategory.value = 'all'
   selectedStatus.value = 'all'
