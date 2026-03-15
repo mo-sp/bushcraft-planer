@@ -113,7 +113,7 @@ onUnmounted(() => {
       >
         <p class="text-earth-400 text-sm">Entwickelt von</p>
         <p class="text-earth-200 text-lg font-semibold mt-1">Claude & Moritz</p>
-        <p class="text-forest-600 text-xs mt-3 tracking-wider uppercase">Version 0.8.0 Beta</p>
+        <p class="text-forest-600 text-xs mt-3 tracking-wider uppercase">Version 0.9.0</p>
       </div>
 
       <!-- Continue hint -->

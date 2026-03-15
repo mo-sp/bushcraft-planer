@@ -387,7 +387,7 @@ async function clearAllData() {
       <div class="space-y-3">
         <div class="flex items-center justify-between">
           <span class="text-sm text-earth-400">Version</span>
-          <span class="text-sm text-earth-200 font-medium">0.8.0 Beta</span>
+          <span class="text-sm text-earth-200 font-medium">0.9.0</span>
         </div>
         <div class="flex items-center justify-between">
           <span class="text-sm text-earth-400">Framework</span>
