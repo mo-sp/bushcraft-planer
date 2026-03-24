@@ -18,6 +18,8 @@ import { useKnownPersons } from '@shared/lib/useKnownPersons'
 
 const isOnline = useOnline()
 const isNative = Capacitor.isNativePlatform()
+const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
+const isAndroid = /Android/.test(navigator.userAgent)
 const projectStore = useProjectStore()
 const materialStore = useMaterialStore()
 const equipmentStore = useEquipmentStore()
@@ -402,10 +404,23 @@ async function clearAllData() {
       <div v-if="!isNative" class="mt-4 p-3 bg-forest-900/30 rounded-lg border border-forest-700/30">
         <div class="flex items-start gap-2">
           <Info class="w-5 h-5 text-forest-400 flex-shrink-0 mt-0.5" />
-          <p class="text-sm text-forest-300">
-            Diese App kann offline verwendet werden.
-            Installiere sie auf deinem Gerät für schnelleren Zugriff.
-          </p>
+          <div class="text-sm text-forest-300">
+            <p class="font-medium mb-2">App auf dem Handy installieren:</p>
+            <div v-if="isIos" class="space-y-1.5">
+              <p>1. Öffne diese Seite in <strong>Safari</strong> (muss Safari sein!)</p>
+              <p>2. Tippe unten auf das <strong>Teilen-Symbol</strong> (Quadrat mit Pfeil nach oben)</p>
+              <p>3. Scrolle runter und tippe <strong>"Zum Home-Bildschirm"</strong></p>
+              <p>4. Tippe oben rechts auf <strong>"Hinzufügen"</strong></p>
+            </div>
+            <div v-else-if="isAndroid" class="space-y-1.5">
+              <p>1. Tippe oben rechts auf die <strong>3 Punkte</strong> (Menü)</p>
+              <p>2. Wähle <strong>"App installieren"</strong> oder <strong>"Zum Startbildschirm hinzufügen"</strong></p>
+            </div>
+            <div v-else class="space-y-1.5">
+              <p>Klicke in der Adressleiste auf das <strong>Installieren-Symbol</strong> oder nutze das Browser-Menü → <strong>"App installieren"</strong></p>
+            </div>
+            <p class="text-earth-500 text-xs mt-2">Die App funktioniert danach auch offline.</p>
+          </div>
         </div>
       </div>
     </BaseCard>
