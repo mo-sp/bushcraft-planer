@@ -431,19 +431,54 @@ caaa094 chore: bump version to 0.9.0
 
 ---
 
+## Session 11 (2026-03-24)
+
+### 59. Item-Modal verbessert (#5)
+- **Filter-Tabs** im Auswahl-Modal: Alle | Material | Ausruestung (togglebar)
+- **Farbschema** geaendert: Ausruestung von amber (gelb) zu sky (blau)
+  - Gruen (forest) = Material, Blau (sky) = Ausruestung, Gelb (amber) = Person/Warnung
+- **Anfangsbestand** beim Neu-Anlegen: BaseNumberStepper fuer currentStock
+- **Benoetigte Menge** beim Neu-Anlegen: BaseNumberStepper fuer requiredAmount
+- Redundantes Text-Label "Material"/"Ausruestung" entfernt (Icon-Farbe reicht)
+- Aenderungen in ProjectDetailPage.vue und ProjectNewPage.vue synchron
+
+### 60. iOS/Android PWA-Anleitung (#10)
+- Generischen PWA-Hinweis in Settings durch plattform-spezifische Anleitung ersetzt
+- iOS: Safari Teilen → Zum Home-Bildschirm (Schritt-fuer-Schritt)
+- Android: Menue → App installieren
+- Desktop: Adressleiste Installieren-Symbol
+- Platform-Erkennung via User Agent (isIos, isAndroid)
+
+### 61. Vercel Deployment
+- PWA gehostet auf **bushcraft-planer.vercel.app**
+- Supabase Env-Vars auf Vercel konfiguriert (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)
+- iPhone-Nutzer koennen die App jetzt ueber Safari als PWA installieren
+- Deploy aktuell manuell via `npx vercel --prod`
+
+### Commits
+```
+3e26d1a feat: item modal filter tabs, equipment color sky, initial stock & required amount
+862fd9a feat: iOS/Android PWA installation guide in settings + Vercel deployment
+fc80ad6 docs: mark #5 and #10 as completed in feedback roadmap
+```
+
+---
+
 ## Was noch zu tun ist (naechste Session)
 
-### Fehlende Features
-1. **Drag & Drop** fuer Aufgaben-Reihenfolge
-2. **Nature Sounds** als App-Hintergrundsound (optional)
+### Aus Feedback-Roadmap v0.9.1
+1. **#4 Equipment-Logik umbauen** (Kategorien, wiederverwendbar, kein Bestandsabzug)
+2. **#7 Kisten-System** (Zwischenebene Lagerort > Kiste > Items)
+3. **#1 Tasks: Bauabschnitte & Abhaengigkeiten**
+4. **#8 Pinnwand** (global + pro Projekt)
+5. **#2 Telegram Bot** (Supabase Edge Function)
+6. **#6 Skizzen-System** (Vue-kompatibel, nicht React)
+7. **#3 Hilfe / Onboarding**
 
-### Release
-1. Release-APK mit Signierung
-2. Version 1.0 Planung
-
-### Polish
-1. Animationen verbessern
-2. Touch-Feedback (Haptic via Capacitor)
+### Sonstiges
+1. Vercel GitHub-Integration fixen (Auto-Deploy bei git push)
+2. Release-APK mit Signierung
+3. Version 1.0 Planung
 
 ## Dateien mit wichtigen Aenderungen
 
@@ -460,12 +495,12 @@ src/entities/material/model/types.ts   # unit optional, UNIT_GROUPS, owner, stor
 src/entities/equipment/model/types.ts  # owner, storageLocationId
 src/entities/storage-location/         # Neues Entity (types + store)
 src/pages/DashboardPage.vue            # Badge-Filter, Personen-Badges auf Karten
-src/pages/ProjectDetailPage.vue        # Participants, Responsible, Location, Auto-Add, Alignment Fix
-src/pages/ProjectNewPage.vue           # Participants, Responsible, Location, allCategories
+src/pages/ProjectDetailPage.vue        # Filter-Tabs, sky-Farben, Anfangsbestand+Menge
+src/pages/ProjectNewPage.vue           # Filter-Tabs, sky-Farben, Anfangsbestand+Menge
 src/pages/StorageLocationsPage.vue     # Lagerverwaltung + Besitzer-Filter
 src/pages/InventoryPage.vue            # Lager + Besitzer Filter-Badges, ComboInput
 src/pages/EquipmentPage.vue            # Lager + Besitzer Filter-Badges, ComboInput
-src/pages/SettingsPage.vue             # Person Management, Sync Info, Gefahrenzone
+src/pages/SettingsPage.vue             # Person Management, Sync Info, PWA-Anleitung
 src/features/sync-data/               # Supabase Sync (store reload after category sync)
 src/shared/ui/BaseComboInput.vue       # Dropdown auto-enter, Freitext Input
 src/shared/ui/BaseNumberStepper.vue    # +/- Stepper Component
@@ -489,5 +524,6 @@ npm run test             # Unit Tests
 npm run cap:sync         # Build + Sync zu Android
 npm run cap:open         # Android Studio oeffnen
 npm run cap:run          # Auf Emulator/Geraet starten
+npx vercel --prod        # Manuell auf Vercel deployen
 flatpak run com.google.AndroidStudio  # Android Studio starten
 ```

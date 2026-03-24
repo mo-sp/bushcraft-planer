@@ -76,6 +76,12 @@ npm run cap:run      # Auf angeschlossenem Geraet/Emulator starten
 ## Navigation
 5 Tabs: Projekte | Material | Ausruestung | Lagerorte | Settings
 
+## Hosting
+- **Vercel**: bushcraft-planer.vercel.app (PWA fuer iOS/Desktop)
+- Deploy manuell: `npx vercel --prod`
+- Env-Vars auf Vercel: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+- GitHub Auto-Deploy noch nicht verbunden
+
 ## Supabase
 - Projekt: `uhzyfmunlkxyfbuvydxm`
 - Free Tier, RLS deaktiviert (shared data, kein Auth)
@@ -83,3 +89,11 @@ npm run cap:run      # Auf angeschlossenem Geraet/Emulator starten
 - Schema: `supabase-schema.sql` (7 Tabellen)
 - Sync: bidirektional, Auto-Sync beim Start + manuell via Header, last-write-wins (updated_at)
 - Tabellen: storage_locations, projects, tasks, materials, material_requirements, equipment, equipment_requirements
+
+## Farbschema
+- `forest` (gruen) = Material, Lagerorte
+- `sky` (blau) = Ausruestung
+- `amber` (gelb) = Personen/Owner, Warnungen
+- `deep-*` = Hintergruende
+- `earth-*` = Text
+- `bark-*` = Brauntöne
