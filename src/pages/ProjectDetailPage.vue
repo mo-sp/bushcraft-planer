@@ -96,12 +96,15 @@ const editTaskAssignee = ref('')
 
 // Item selection (materials + equipment)
 type ItemType = 'material' | 'equipment'
+type ItemFilter = 'all' | 'material' | 'equipment'
 const itemSearchQuery = ref('')
+const itemFilterTab = ref<ItemFilter>('all')
 const selectedItemId = ref<string | null>(null)
 const selectedItemType = ref<ItemType | null>(null)
 const itemAmount = ref(1)
 
 // New item form
+const newItemStock = ref(0)
 const newItem = ref({ type: 'material' as ItemType, name: '', specifications: '', unit: '', owner: '', storageLocationId: '' })
 
 const locationOptions = computed(() =>
@@ -158,9 +161,13 @@ const allItems = computed(() => {
 })
 
 const filteredItems = computed(() => {
+  let items = allItems.value
+  if (itemFilterTab.value !== 'all') {
+    items = items.filter(item => item.type === itemFilterTab.value)
+  }
   const query = itemSearchQuery.value.toLowerCase().trim()
-  if (!query) return allItems.value
-  return allItems.value.filter(item =>
+  if (!query) return items
+  return items.filter(item =>
     item.name.toLowerCase().includes(query) ||
     (item.specifications && item.specifications.toLowerCase().includes(query))
   )
@@ -405,6 +412,7 @@ async function deleteTask(taskId: string) {
 // Item selection functions
 function openAddItem() {
   itemSearchQuery.value = ''
+  itemFilterTab.value = 'all'
   selectedItemId.value = null
   selectedItemType.value = null
   itemAmount.value = 1
@@ -453,6 +461,7 @@ async function confirmAddItem() {
 
 function openNewItemModal() {
   newItem.value = { type: 'material', name: '', specifications: '', unit: '', owner: '', storageLocationId: project.value?.storageLocationId || '' }
+  newItemStock.value = 0
   showNewItemModal.value = true
 }
 
@@ -466,7 +475,7 @@ async function createNewItem() {
       unit: newItem.value.unit || undefined,
       owner: newItem.value.owner.trim() || undefined,
       storageLocationId: newItem.value.storageLocationId || undefined,
-      currentStock: 0
+      currentStock: newItemStock.value
     })
     if (material) {
       await materialStore.createRequirement({
@@ -483,7 +492,7 @@ async function createNewItem() {
       specifications: newItem.value.specifications.trim() || undefined,
       owner: newItem.value.owner.trim() || undefined,
       storageLocationId: newItem.value.storageLocationId || undefined,
-      currentStock: 0
+      currentStock: newItemStock.value
     })
     if (equipment) {
       await equipmentStore.createRequirement({
@@ -1269,7 +1278,7 @@ async function removeSketch() {
                   class="flex items-center gap-2 flex-1 min-w-0 cursor-pointer hover:bg-deep-50/50 -mx-1 px-1 py-0.5 rounded transition-colors"
                   @click="openItemDetail('equipment', req.equipmentId)"
                 >
-                  <Backpack class="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  <Backpack class="w-4 h-4 text-sky-400 flex-shrink-0" />
                   <div class="flex-1 min-w-0">
                     <p class="text-earth-200 font-medium truncate">{{ getEquipmentName(req.equipmentId) }}</p>
                     <div class="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -1565,6 +1574,46 @@ async function removeSketch() {
       title="Material / Ausrüstung hinzufügen"
       @close="showAddItem = false"
     >
+      <!-- Filter tabs -->
+      <div class="flex gap-2 mb-3">
+        <button
+          type="button"
+          :class="[
+            'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all',
+            itemFilterTab === 'all'
+              ? 'bg-earth-100/10 text-earth-100 ring-1 ring-earth-100/30'
+              : 'text-earth-500 hover:text-earth-300'
+          ]"
+          @click="itemFilterTab = 'all'"
+        >Alle</button>
+        <button
+          type="button"
+          :class="[
+            'flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all',
+            itemFilterTab === 'material'
+              ? 'bg-forest-900/30 text-forest-300 ring-1 ring-forest-500/50'
+              : 'text-earth-500 hover:text-earth-300'
+          ]"
+          @click="itemFilterTab = itemFilterTab === 'material' ? 'all' : 'material'"
+        >
+          <Package class="w-4 h-4" />
+          Material
+        </button>
+        <button
+          type="button"
+          :class="[
+            'flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all',
+            itemFilterTab === 'equipment'
+              ? 'bg-sky-900/30 text-sky-300 ring-1 ring-sky-500/50'
+              : 'text-earth-500 hover:text-earth-300'
+          ]"
+          @click="itemFilterTab = itemFilterTab === 'equipment' ? 'all' : 'equipment'"
+        >
+          <Backpack class="w-4 h-4" />
+          Ausrüstung
+        </button>
+      </div>
+
       <!-- Search -->
       <div class="relative mb-4">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-earth-500" />
@@ -1595,7 +1644,7 @@ async function removeSketch() {
               'w-10 h-10 rounded-lg flex items-center justify-center',
               selectedItemId === item.id && selectedItemType === item.type
                 ? 'bg-forest-600'
-                : item.type === 'material' ? 'bg-forest-900/30' : 'bg-amber-900/30'
+                : item.type === 'material' ? 'bg-forest-900/30' : 'bg-sky-900/30'
             ]"
           >
             <component
@@ -1604,7 +1653,7 @@ async function removeSketch() {
                 'w-5 h-5',
                 selectedItemId === item.id && selectedItemType === item.type
                   ? 'text-white'
-                  : item.type === 'material' ? 'text-forest-400' : 'text-amber-400'
+                  : item.type === 'material' ? 'text-forest-400' : 'text-sky-400'
               ]"
             />
           </div>
@@ -1619,8 +1668,6 @@ async function removeSketch() {
             </p>
             <p class="text-sm text-earth-500">
               {{ item.currentStock }} {{ item.unit || 'Stück' }} auf Lager
-              <span class="text-earth-600">·</span>
-              {{ item.type === 'material' ? 'Material' : 'Ausrüstung' }}
               <template v-if="item.owner">
                 <span class="text-earth-600">·</span>
                 <span class="text-amber-400">{{ item.owner }}</span>
@@ -1694,7 +1741,7 @@ async function removeSketch() {
               :class="[
                 'flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all',
                 newItem.type === 'equipment'
-                  ? 'border-amber-500 bg-amber-900/30 text-amber-300'
+                  ? 'border-sky-500 bg-sky-900/30 text-sky-300'
                   : 'border-deep-100 bg-deep-200 text-earth-400 hover:border-deep-50'
               ]"
               @click="newItem.type = 'equipment'"
@@ -1723,6 +1770,9 @@ async function removeSketch() {
           :groups="unitGroups"
           empty-label="Keine Einheit"
         />
+
+        <BaseNumberStepper v-model="newItemStock" :min="0" label="Anfangsbestand" />
+        <BaseNumberStepper v-model="itemAmount" :min="1" label="Benötigte Menge" />
 
         <BaseComboInput
           v-model="newItem.owner"
