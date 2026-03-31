@@ -56,6 +56,9 @@ export default defineConfig({
       }
     })
   ],
+  server: {
+    allowedHosts: ['dev-sandbox']
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
