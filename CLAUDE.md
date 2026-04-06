@@ -37,11 +37,16 @@ src/
 ## Konventionen
 - Sprache UI: Deutsch
 - Sprache Code: Englisch (Variablen, Funktionen, Typen)
-- Kommentare im Code: Englisch
 - Dark Theme mit Wald-Farbpalette (deep-*, forest-*, earth-*, bark-*)
 - Mobile-first Design, Touch-optimiert
 - Alle Stores nutzen Dexie für Persistenz
 - Path Aliases: @, @app, @entities, @features, @widgets, @pages, @shared
+
+## Code-Kommentare
+- Nicht jede Zeile kommentieren — der Code soll für sich sprechen
+- Kommentare dort wo die Logik nicht offensichtlich ist (z.B. kaskadierende Löschungen, Bedarfsrechnungen, komplexe Filter-Ketten)
+- Sprache: Englisch
+- Kurzdokus in `docs/` sind die Hauptreferenz — Inline-Kommentare ergänzen, nicht ersetzen
 
 ## Befehle
 ```bash
