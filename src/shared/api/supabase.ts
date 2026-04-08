@@ -15,6 +15,11 @@ export function getSupabase(): SupabaseClient | null {
       auth: {
         persistSession: true,
         autoRefreshToken: true
+      },
+      global: {
+        headers: {
+          'x-app-secret': import.meta.env.VITE_APP_SECRET || ''
+        }
       }
     })
   }
