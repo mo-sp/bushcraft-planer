@@ -8,10 +8,10 @@
 
 ### B-001: Kein Auth / RLS deaktiviert
 - **Bereich:** Security
-- **Status:** Bekannt, bewusste Entscheidung
-- **Beschreibung:** Supabase läuft ohne Auth, RLS ist aus. Alle Daten sind öffentlich für jeden mit der URL.
-- **Risiko:** Niedrig (kleiner Freundeskreis), aber bei Wachstum problematisch
-- **Vorschlag:** Für v1.0 zumindest einen einfachen Shared-Key oder Supabase Auth evaluieren
+- **Status:** Mitigiert (RLS + Shared Secret)
+- **Beschreibung:** Supabase läuft ohne Auth. RLS ist jetzt aktiviert mit einer `is_authorized()`-Funktion, die ein Shared Secret aus dem `x-app-secret`-Header prüft. Jede der 7 Tabellen hat eine `app_access`-Policy.
+- **Risiko:** Das Secret liegt im Frontend-Bundle und ist für motivierte Angreifer einsehbar. Für den aktuellen Freundeskreis ausreichend.
+- **Vorschlag:** Für echte Security langfristig Supabase Auth (Login pro User) evaluieren.
 
 ### B-002: Last-Write-Wins Konflikte
 - **Bereich:** Sync
