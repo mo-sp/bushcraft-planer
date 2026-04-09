@@ -236,3 +236,48 @@
 
 ### Beobachtung für später
 - Material Store und Equipment Store sind nahezu identisch. Nach Feedback #4 (Equipment-Umbau) evaluieren ob eine gemeinsame Basis (generischer Inventory-Store oder Composable) sinnvoll wäre.
+
+## Session 4 (2026-04-08 / 2026-04-09)
+
+### Supabase Security — B-001 behoben
+
+**Schritt 1: Shared Secret + RLS (erste Iteration)**
+- RLS auf allen 7 Tabellen aktiviert
+- `is_authorized()` Funktion prüft `x-app-secret` Header
+- `app_access` Policy pro Tabelle
+- Custom Header in `supabase.ts` via `global.headers`
+- Neue Env-Variable: `VITE_APP_SECRET`
+- Getestet: curl ohne Header gibt `[]` zurück
+- Bewertung: 3/10 Security — Secret liegt im Frontend-Bundle
+
+**Schritt 2: Upgrade auf Supabase Auth (zweite Iteration)**
+- Shared Secret als unzureichend bewertet
+- Supabase Auth aktiviert mit Shared Account (1x Email+Passwort)
+- `LoginPage.vue` gebaut: Passwort-only UI, Email hardcoded
+- Router Guard in `router.ts`: unauthentifizierte User → `/login`
+- Auto-Sync in `App.vue` an Session gekoppelt (`getSession()` Check)
+- `supabase.ts` erweitert: `signIn()`, `getSession()`, `signOut()`
+- RLS-Policies umgestellt: `TO authenticated USING (true)`
+- Alte `is_authorized()` Funktion + `app_access` Policies entfernt
+- `VITE_APP_SECRET` aus allen `.env`-Dateien und Vercel entfernt
+- Bewertung: 6/10 Security — Passwort steht nirgends im Code
+- `SECURITY.md` angelegt als Referenz für Claude Code
+
+**Dateien geändert/erstellt**
+- `src/shared/api/supabase.ts` — Auth-Funktionen hinzugefügt, Shared Secret entfernt
+- `src/pages/LoginPage.vue` — Neu: Login-Screen mit Passwortfeld
+- `src/app/router.ts` — Login-Route + Auth Guard
+- `src/app/App.vue` — Auto-Sync nur nach Login
+- `SECURITY.md` — Neu: Security-Architektur Dokumentation
+- `CODE_REVIEW_BACKLOG.md` — B-001 Status aktualisiert
+
+**Erkenntnisse**
+- Supabase RLS gibt bei fehlender Berechtigung leere Arrays zurück, keine Fehler — tückisch zum Debuggen
+- `VITE_`-Prefix bedeutet: Variable landet im Frontend-Bundle, nie für Secrets nutzen
+- Vite liest `.env` nur beim Start — nach Änderung Dev-Server neu starten
+- Header-Tippfehler (`x.app-secret` statt `x-app-secret`) war schwer zu finden — immer DevTools Network Tab prüfen
+- Frontend-only Apps können Secrets grundsätzlich nicht schützen — echte Security braucht Auth
+
+**Nächste Session**
+- Weiter mit Phase 3: Restliche Stores (Material, Equipment, StorageLocation)
+- Dann Phase 4: db.ts, supabase.ts, Sync Service
