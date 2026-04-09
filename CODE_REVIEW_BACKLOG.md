@@ -8,10 +8,10 @@
 
 ### B-001: Kein Auth / RLS deaktiviert
 - **Bereich:** Security
-- **Status:** Mitigiert (RLS + Shared Secret)
-- **Beschreibung:** Supabase läuft ohne Auth. RLS ist jetzt aktiviert mit einer `is_authorized()`-Funktion, die ein Shared Secret aus dem `x-app-secret`-Header prüft. Jede der 7 Tabellen hat eine `app_access`-Policy.
-- **Risiko:** Das Secret liegt im Frontend-Bundle und ist für motivierte Angreifer einsehbar. Für den aktuellen Freundeskreis ausreichend.
-- **Vorschlag:** Für echte Security langfristig Supabase Auth (Login pro User) evaluieren.
+- **Status:** Behoben (Supabase Auth + RLS)
+- **Beschreibung:** Supabase Auth mit Shared Account (Email+Passwort). RLS aktiviert auf allen 7 Tabellen mit Policy `TO authenticated`. Ohne Login kein Datenzugriff möglich. Login-Screen mit Passwortfeld, Email hardcoded. Router Guard leitet unauthentifizierte User auf /login um. Auto-Sync startet erst nach erfolgreicher Authentifizierung.
+- **Risiko:** Gering. Angreifer müsste das Passwort kennen, das nirgends im Code steht.
+- **Vorschlag:** Langfristig individuelle Accounts pro User evaluieren.
 
 ### B-002: Last-Write-Wins Konflikte
 - **Bereich:** Sync
