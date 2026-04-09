@@ -9,7 +9,7 @@ import { useProjectStore } from '@entities/project/model/store'
 import { useMaterialStore } from '@entities/material/model/store'
 import { useEquipmentStore } from '@entities/equipment/model/store'
 import { useStorageLocationStore } from '@entities/storage-location/model/store'
-import { isSupabaseConfigured } from '@shared/api/supabase'
+import { isSupabaseConfigured, getSession } from '@shared/api/supabase'
 import { useSync } from '@features/sync-data'
 
 const projectStore = useProjectStore()
@@ -77,8 +77,9 @@ onMounted(async () => {
     isLoading.value = false
   }
 
-  // Auto-sync in background after local data is loaded
-  if (isSupabaseConfigured() && isOnline.value) {
+  // Auto-sync in background after local data is loaded (only if logged in)
+  const session = await getSession()
+  if (isSupabaseConfigured() && isOnline.value && session) {
     try {
       const result = await fullSync()
       if (result.pulled > 0 || result.deleted > 0) {
