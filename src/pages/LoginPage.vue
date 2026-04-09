@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { Lock, Trees, AlertCircle } from 'lucide-vue-next'
 import { signIn } from '@shared/api/supabase'
 import { BaseButton } from '@shared/ui'
 
-const router = useRouter()
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
