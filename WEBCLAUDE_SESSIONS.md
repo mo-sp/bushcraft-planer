@@ -281,3 +281,106 @@
 **Nächste Session**
 - Weiter mit Phase 3: Restliche Stores (Material, Equipment, StorageLocation)
 - Dann Phase 4: db.ts, supabase.ts, Sync Service
+
+## Session 5 (2026-04-09)
+
+### Phase 4: Datenbank & API — komplett abgeschlossen
+
+**1. src/shared/api/db.ts (Dexie Setup)**
+- Dexie als IndexedDB-Wrapper erklärt: Schema ≠ Spalten sondern Indexe
+- 4 Schema-Versionen, Version 4 ist Leer-Migration → B-018
+- Klassen-Vererbung (`extends Dexie`), `super()`, Non-null Assertion (`!`)
+- `generateId()`: UUID v4 mit Fallback für Non-Secure Contexts (HTTP im LAN)
+- Diskussion: `uuid` Library vs. eigener Fallback → eigener Code reicht, funktioniert
+- `SyncMeta` als Change-Tracking-Tabelle für bidirektionalen Sync
+- `trackChange()` Zeile für Zeile erklärt (Template Literals, Shorthand Properties, Date.now vs new Date)
+- Boolean/Number Inkonsistenz bei `synced` → B-017
+- Untypisierter `table` Parameter → B-019
+- Kurzdoku: `docs/db.md`
+
+**2. src/shared/api/supabase.ts (Supabase Client + Auth)**
+- Lazy Singleton Pattern vs. Eager Singleton (db.ts)
+- `import.meta.env` für Build-Zeit Env-Variablen
+- Auth-Funktionen: signIn (Result-Objekt Pattern), getSession (Nested Destructuring), signOut
+- `checkConnection()` ist RLS-blind — praxisbestätigt durch Moritz → B-020
+- Fehlende Rückgabetypen bei getSession/signOut → B-021
+- Kurzdoku: `docs/supabase.md`
+
+**3. src/features/sync-data/ (Sync Service)**
+- Barrel Export in `index.ts` erklärt
+- Field Mapping: camelCase (lokal) ↔ snake_case (Supabase), `|| null` vs `|| undefined` vs `?? null`
+- `TableSyncConfig<T>` — generische Abstraktion für alle 7 Tabellen
+- Sync-Reihenfolge bewusst: Basis-Tabellen zuerst, dann abhängige (wegen FK-Constraints)
+- `syncTable` Kern-Algorithmus (9 Schritte): Deletes pushen → Full Fetch → Maps bauen → Last-Write-Wins Vergleich → Remote-Only pullen → Batch Upserts → SyncMeta aufräumen
+- FK-Violation Fallback (Error 23503): Einzeln hochladen, Orphans lokal löschen → B-024
+- Project-spezifische Logik in generischem Code → B-022
+- `select('*')` Full Table Scan → B-023
+- Redundante SyncMeta-Abfrage → B-025
+- Custom Categories localStorage-Sync nach Pull bestätigt B-004
+- Dynamic Import (`await import(...)`) zur Vermeidung zirkulärer Abhängigkeiten
+- Shared State auf Modul-Ebene (refs außerhalb der Composable)
+- Kurzdoku: `docs/sync-service.md`
+
+**4. supabase-schema.sql**
+- Alte Datei war veraltet (RLS DISABLE, falscher Status-Default, fehlende Policies) → B-026
+- Schema aus laufender DB exportiert via `information_schema` Queries
+- Aktualisierte Datei erstellt mit korrektem RLS, FK-Constraints, strukturierten Abschnitten
+- B-026 behoben, ins Repo committed
+- Status-Default Mismatch entdeckt: DB hat `'planning'`, App hat `'planned'` → B-027
+
+### B-016 Update
+- Supabase hat `ON DELETE SET NULL` auf `storage_location_id` — die DB räumt Remote korrekt auf
+- Problem bleibt nur lokal zwischen Löschung und nächstem Sync
+- Weniger kritisch als ursprünglich angenommen
+
+### TypeScript/JS-Konzepte gelernt
+
+| Konzept | Beispiel | Erklärung |
+|---------|----------|-----------|
+| `extends` | `class X extends Dexie` | Vererbung — X bekommt alle Methoden/Felder von Dexie |
+| `super()` | `super('BushcraftPlaner')` | Ruft den Constructor der Elternklasse auf |
+| `!` (Non-null Assertion) | `projects!: EntityTable<...>` | "Ich garantiere: wird nicht null sein" |
+| `EntityTable<T, K>` | `EntityTable<Project, 'id'>` | Generischer Typ: Tabelle mit T-Objekten, Schlüssel K |
+| Bitweise Operatoren | `& 0x0f`, `\| 0x40` | Manipulieren einzelne Bits in einer Zahl |
+| Template Literal | `` `${table}-${id}` `` | String mit eingebetteten Ausdrücken |
+| Default Parameter | `olderThanDays = 7` | Standardwert wenn Argument weggelassen wird |
+| `.where().filter()` | Index-Query + JS-Filter | Zweistufige Filterung: schnell (Index) → fein (JS) |
+| Lazy Singleton | `if (!client) { client = create() }` | Instanz erst beim ersten Zugriff erstellt |
+| `import.meta.env` | `import.meta.env.VITE_SUPABASE_URL` | Vites Build-Zeit Env-Variablen |
+| Nested Destructuring | `{ data: { session } }` | Wert aus verschachteltem Objekt in einem Schritt |
+| `Boolean()` | `Boolean(x && y)` | Erzwingt echten Boolean statt truthy/falsy |
+| Result-Objekt Pattern | `{ success: boolean; error?: string }` | Fehler als Rückgabewert statt Exception |
+| `T extends {...}` | `T extends { id: string }` | Generischer Typ mit Constraint |
+| `NonNullable<T>` | `NonNullable<X \| null>` → `X` | Utility Type: entfernt null/undefined |
+| `ReturnType<typeof fn>` | `ReturnType<typeof getSupabase>` | Extrahiert den Rückgabetyp einer Funktion |
+| `new Map()` | `new Map(arr.map(x => [x.id, x]))` | Lookup-Map für O(1)-Zugriff per Key |
+| Dynamic `import()` | `await import('@entities/...')` | Modul erst zur Laufzeit laden |
+| `finally` | `try {...} finally { cleanup }` | Läuft immer, egal ob Erfolg oder Fehler |
+| `?? null` vs `\|\| null` | `duration ?? null` vs `notes \|\| null` | `??` nur null/undefined, `\|\|` alle falsy |
+| `;(expr)` | `;(merged as any).field = ...` | Semikolon am Zeilenanfang verhindert ASI-Fehler |
+
+### Backlog-Einträge (B-017 bis B-027)
+- B-017: SyncMeta `synced` boolean/number Inkonsistenz
+- B-018: Version 4 ist eine Leer-Migration
+- B-019: trackChange `table` Parameter ist untypisiert
+- B-020: checkConnection ist RLS-blind (praxisbestätigt)
+- B-021: getSession / signOut ohne expliziten Rückgabetyp
+- B-022: syncTable hat Project-spezifische Logik im generischen Code
+- B-023: select('*') lädt immer die komplette Tabelle
+- B-024: FK-Violation Fallback löscht lokale Daten ohne Warnung
+- B-025: SyncMeta-Abfrage für gelöschte IDs ist redundant
+- B-026: supabase-schema.sql war veraltet — behoben
+- B-027: projects.status Default-Mismatch DB ('planning') vs. App ('planned')
+
+### Erstellte Kurzdokus
+- `docs/db.md` (ausstehend)
+- `docs/supabase.md` (ausstehend)
+- `docs/sync-service.md` (ausstehend)
+- `docs/supabase-schema.md` (ausstehend)
+
+### Status nach Session 5
+- **Phase 1 (Config):** ✅ Komplett
+- **Phase 2 (Entity Types):** ✅ Komplett
+- **Phase 3 (Stores):** ✅ Komplett
+- **Phase 4 (Datenbank & API):** ✅ Komplett
+- **Nächste Session:** Phase 5 — Shared Components (Base UI, Composables, Config)

@@ -109,6 +109,71 @@
 - **Vorschlag (Optionen, eine davon wählen):**
   1. **Lösch-Schutz (empfohlen):** Löschung verhindern solange noch Gegenstände oder Projekte am Lagerort hängen. Hinweis an den User: "Lagerort kann nicht gelöscht werden — es sind noch X Materialien und Y Ausrüstungsgegenstände zugewiesen."
   2. **Umlagern vor Löschung:** Dialog der alle zugewiesenen Items zeigt und den User auffordert, diese zuerst einem anderen Lagerort zuzuweisen. Erst wenn der Lagerort leer ist, wird Löschung freigegeben.
+
+  ### B-017: SyncMeta `synced` boolean/number Inkonsistenz
+- **Bereich:** TypeScript / Dexie
+- **Datei:** `src/shared/api/db.ts`
+- **Beschreibung:** `synced` ist als `boolean` typisiert, aber `getUnsyncedChanges()` nutzt `.equals(0)` statt `.equals(false)`. Funktioniert weil Dexie intern konvertiert, aber ist irreführend.
+- **Vorschlag:** Entweder `equals(false)` nutzen oder den Typ auf `number` (bzw. `0 | 1`) ändern.
+
+### B-018: Version 4 ist eine Leer-Migration
+- **Bereich:** Config-Hygiene
+- **Datei:** `src/shared/api/db.ts`
+- **Beschreibung:** Version 4 ("Add assignees on tasks") ändert keine Indexe gegenüber Version 3. Die Migration existiert ohne Effekt.
+- **Vorschlag:** Kommentar anpassen dass kein Index-Update nötig war, oder bei nächster echter Schema-Änderung zusammenlegen.
+
+### B-019: trackChange `table` Parameter ist untypisiert
+- **Bereich:** TypeScript / Typ-Sicherheit
+- **Datei:** `src/shared/api/db.ts`
+- **Beschreibung:** `table: string` erlaubt beliebige Strings. Ein Tippfehler wie `trackChange('projecst', ...)` fällt nicht auf. Gleiches gilt für `SyncMeta.table`.
+- **Vorschlag:** Union Type definieren: `type SyncTable = 'projects' | 'tasks' | 'materials' | 'materialRequirements' | 'equipment' | 'equipmentRequirements' | 'storageLocations'`
+
+### B-020: checkConnection ist RLS-blind
+- **Bereich:** Sync / Auth
+- **Datei:** `src/shared/api/supabase.ts`
+- **Beschreibung:** `checkConnection()` macht `select('id').limit(1)` auf `projects`. Mit RLS aktiv und ohne Login gibt Supabase kein Error sondern ein leeres Array zurück. Der Check sagt "Verbindung steht" obwohl kein Datenzugriff möglich ist. Praxisbestätigt: "Sync erfolgreich" obwohl keine DB-Verbindung bestand.
+- **Vorschlag:** Entweder Session-Check einbauen (`getSession()` prüfen), oder eine dedizierte Health-Check-RPC-Funktion in Supabase nutzen.
+
+### B-021: getSession / signOut ohne expliziten Rückgabetyp
+- **Bereich:** TypeScript / Konsistenz
+- **Datei:** `src/shared/api/supabase.ts`
+- **Beschreibung:** `signIn` hat einen expliziten Rückgabetyp, `getSession` und `signOut` nicht. Für eine zentrale API-Datei inkonsistent.
+- **Vorschlag:** Rückgabetypen ergänzen: `Promise<Session | null>` und `Promise<void>`.
+
+### B-022: syncTable hat Project-spezifische Logik im generischen Code
+- **Bereich:** Architektur / Wartbarkeit
+- **Datei:** `src/features/sync-data/composables/useSync.ts`
+- **Beschreibung:** Innerhalb von `syncTable` (Schritt 5) gibt es ein `if (config.localTableName === 'projects')` das `imagePlaceholder` und `createdBy` preserviert. Das bricht die generische Abstraktion — wenn weitere Entities lokale-only Felder bekommen, muss die generische Funktion erneut angefasst werden.
+- **Vorschlag:** `TableSyncConfig` um ein optionales `preserveLocalFields?: (local: T, merged: T) => T` erweitern und die Project-Logik dort rein.
+
+### B-023: select('*') lädt immer die komplette Tabelle
+- **Bereich:** Performance / Skalierbarkeit
+- **Datei:** `src/features/sync-data/composables/useSync.ts`
+- **Beschreibung:** `syncTable` Schritt 2 macht `select('*')` ohne Filter. Bei wachsenden Datenmengen (Bilder als Base64 in Projects — B-003) wird das zunehmend langsam.
+- **Vorschlag:** Für eure Gruppengröße aktuell kein Problem. Langfristig: Delta-Sync mit `updated_at > lastSyncedAt` Filter, oder zumindest schwere Felder (imageUrl) ausschließen.
+
+### B-024: FK-Violation Fallback löscht lokale Daten ohne Warnung
+- **Bereich:** Datenintegrität / UX
+- **Datei:** `src/features/sync-data/composables/useSync.ts`
+- **Beschreibung:** Bei PostgreSQL Error `23503` (FK-Violation) wird der fehlerhafte Record lokal gelöscht (`localTable.delete(record.id)`). Der User erfährt nichts davon. Verknüpft mit B-015.
+- **Vorschlag:** Mindestens loggen welche Records betroffen sind. Besser: in ein `syncConflicts`-Array sammeln und dem User anzeigen.
+
+### B-025: SyncMeta-Abfrage für gelöschte IDs ist redundant
+- **Bereich:** Performance
+- **Datei:** `src/features/sync-data/composables/useSync.ts`
+- **Beschreibung:** In `syncTable` werden Delete-Metas zweimal abgefragt: einmal in Schritt 1 (um Deletes zu pushen) und nochmal nach Schritt 4 (um `locallyDeletedIds` zu bauen). Die zweite Abfrage könnte die Ergebnisse der ersten wiederverwenden.
+- **Vorschlag:** `deleteMeta` aus Schritt 1 wiederverwenden und mit bereits gesyncten Deletes ergänzen. Spart eine DB-Query pro Tabelle pro Sync.
+
+### B-026: supabase-schema.sql war veraltet
+- **Bereich:** Dokumentation / DevOps
+- **Datei:** `supabase-schema.sql`
+- **Status:** Behoben (Session 5) — Schema-Datei aus laufender DB exportiert und aktualisiert. Enthält jetzt korrekten RLS-Stand (ENABLE + authenticated_access Policies), korrekte FK-Constraints, strukturierte Abschnitte nach Abhängigkeitsreihenfolge.
+
+### B-027: projects.status Default-Mismatch DB vs. App
+- **Bereich:** Datenintegrität
+- **Datei:** `supabase-schema.sql`, `src/entities/project/model/types.ts`
+- **Beschreibung:** Der DB-Default für `projects.status` ist `'planning'`, aber der TypeScript-Typ `ProjectStatus` definiert `'planned' | 'in-progress' | 'completed'`. Wenn Supabase je den Default einsetzt (z.B. bei einem Insert ohne Status-Feld), entsteht ein Status den die App nicht kennt.
+- **Vorschlag:** In Supabase den Default auf `'planned'` ändern: `ALTER TABLE projects ALTER COLUMN status SET DEFAULT 'planned';`
  
 <!-- Template:
 ### B-XXX: Titel
